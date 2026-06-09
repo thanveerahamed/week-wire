@@ -1,16 +1,14 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { google } from 'googleapis';
 import { getSession } from '@/lib/session';
-import { oauthClient, verifyState } from '@/lib/google-oauth';
+import { oauthClient, oauthRedirectUriFromOrigin, verifyState } from '@/lib/google-oauth';
 import { syncCalendarList, upsertCalendarAccount } from '@/lib/calendars-repo';
-import { serverEnv } from '@/lib/env';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest): Promise<Response> {
-  const env = serverEnv();
-  const appUrl = env.NEXT_PUBLIC_APP_URL;
+  const appUrl = new URL(req.url).origin;
 
   const session = await getSession();
   if (!session) {
@@ -30,11 +28,11 @@ export async function GET(req: NextRequest): Promise<Response> {
   }
 
   const stateData = verifyState(state);
-  if (!stateData || stateData.uid !== session.uid) {
+  if (stateData?.uid !== session.uid) {
     return redirectToCalendars(appUrl, { error: 'bad_state' });
   }
 
-  const client = oauthClient();
+  const client = oauthClient(oauthRedirectUriFromOrigin(new URL(req.url).origin));
   let tokens;
   try {
     const exchange = await client.getToken(code);

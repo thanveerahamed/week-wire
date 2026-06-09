@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
 import { TelegramBotTokenSchema } from '@week-wire/shared';
 import { getSession } from '@/lib/session';
@@ -14,7 +14,7 @@ export const dynamic = 'force-dynamic';
 
 const Body = z.object({ botToken: TelegramBotTokenSchema });
 
-export async function POST(req: Request): Promise<Response> {
+export async function POST(req: NextRequest): Promise<Response> {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
 
@@ -44,8 +44,9 @@ export async function POST(req: Request): Promise<Response> {
 
   // Register webhook BEFORE persisting, so we never store a token we can't reach.
   try {
+    const origin = new URL(req.url).origin;
     await setWebhook(parsed.botToken, {
-      url: webhookUrlFor(session.uid),
+      url: webhookUrlFor(session.uid, origin),
       secretToken: webhookSecretFor(session.uid),
     });
   } catch (err) {
