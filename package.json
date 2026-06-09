@@ -1,0 +1,28 @@
+{
+  "name": "week-wire",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @week-wire/web dev",
+    "build": "pnpm -r --filter \"./apps/*\" --filter \"./packages/*\" --filter \"./functions\" build",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "deploy:rules": "firebase deploy --only firestore:rules,firestore:indexes --project week-wire",
+    "deploy:functions": "firebase deploy --only functions --project week-wire",
+    "deploy:hosting": "firebase deploy --only apphosting --project week-wire",
+    "deploy:all": "firebase deploy --project week-wire",
+    "logs:dispatcher": "gcloud functions logs read dispatchDigests --region=europe-west1 --gen2 --limit=50 --project=week-wire",
+    "logs:worker": "gcloud functions logs read sendUserDigest --region=europe-west1 --gen2 --limit=50 --project=week-wire"
+  },
+  "devDependencies": {
+    "prettier": "^3.3.3",
+    "prettier-plugin-tailwindcss": "^0.6.8",
+    "typescript": "^5.6.3"
+  }
+}

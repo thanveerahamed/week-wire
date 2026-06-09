@@ -1,0 +1,56 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    // Users may read/write their own profile, but only mutable preference fields.
+    match /users/{uid} {
+      allow read: if isOwner(uid);
+      allow create: if isOwner(uid)
+        && request.resource.data.keys().hasOnly(
+          ['displayName','email','photoURL','lookaheadDays','timezone','enabled','createdAt','updatedAt']
+        );
+      allow update: if isOwner(uid)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(
+          ['displayName','photoURL','lookaheadDays','timezone','enabled','updatedAt']
+        );
+      allow delete: if false;
+
+      // Encrypted secrets — never readable by the client; only server (Admin SDK) touches these.
+      match /calendarAccounts/{accountEmail} {
+        allow read, write: if false;
+
+        match /calendars/{calendarId} {
+          // Client may read sub-calendar metadata and toggle `enabled`.
+          allow read: if isOwner(uid);
+          allow update: if isOwner(uid)
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['enabled','updatedAt']);
+          allow create, delete: if false;
+        }
+      }
+
+      match /telegram/{doc} {
+        // Encrypted bot token + chatId — server only.
+        allow read, write: if false;
+      }
+    }
+
+    // Idempotency / run tracking — server only.
+    match /runs/{runId} {
+      allow read, write: if false;
+    }
+
+    // Default deny.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,0 +1,35 @@
+# Firebase App Hosting — Next.js app at apps/web.
+# Region must be set when creating the backend: `firebase apphosting:backends:create --location europe-west1`.
+runConfig:
+  cpu: 1
+  memoryMiB: 512
+  maxInstances: 3
+  minInstances: 0
+  concurrency: 80
+
+env:
+  - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
+    value: ${PROJECT_ID}
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: GOOGLE_OAUTH_CLIENT_ID
+    secret: GOOGLE_OAUTH_CLIENT_ID
+    availability:
+      - RUNTIME
+  - variable: GOOGLE_OAUTH_CLIENT_SECRET
+    secret: GOOGLE_OAUTH_CLIENT_SECRET
+    availability:
+      - RUNTIME
+  - variable: FIELD_ENC_KEY
+    secret: FIELD_ENC_KEY
+    availability:
+      - RUNTIME
+  - variable: WEBHOOK_SECRET
+    secret: WEBHOOK_SECRET
+    availability:
+      - RUNTIME
+  - variable: SESSION_COOKIE_NAME
+    value: __wwsession
+    availability:
+      - RUNTIME
