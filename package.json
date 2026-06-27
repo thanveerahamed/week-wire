@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "pnpm --filter @week-wire/web dev",
     "build": "pnpm -r --filter \"./apps/*\" --filter \"./packages/*\" --filter \"./functions\" build",
+    "start": "pnpm --filter @week-wire/web start",
     "lint": "pnpm -r lint",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
