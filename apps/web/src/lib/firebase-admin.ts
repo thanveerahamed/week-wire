@@ -34,8 +34,9 @@ export function adminApp(): App {
     getApps()[0] ??
     initializeApp({
       credential,
-      projectId:
-        process.env.FIREBASE_PROJECT_ID ?? process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+      // Do not pass projectId explicitly: on App Hosting it is auto-detected
+      // from FIREBASE_CONFIG; for cert() (Vercel) it is embedded in the SA JSON.
+      // Passing it risks using an unsubstituted "${PROJECT_ID}" template literal.
     });
   return app;
 }
