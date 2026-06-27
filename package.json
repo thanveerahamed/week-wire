@@ -20,6 +20,15 @@
     "logs:dispatcher": "gcloud functions logs read dispatchDigests --region=europe-west1 --gen2 --limit=50 --project=week-wire",
     "logs:worker": "gcloud functions logs read sendUserDigest --region=europe-west1 --gen2 --limit=50 --project=week-wire"
   },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@firebase/util",
+      "esbuild",
+      "protobufjs",
+      "sharp",
+      "unrs-resolver"
+    ]
+  },
   "devDependencies": {
     "prettier": "^3.3.3",
     "prettier-plugin-tailwindcss": "^0.6.8",

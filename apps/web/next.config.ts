@@ -16,6 +16,14 @@ const nextConfig: NextConfig = {
   // `.ts` source. Webpack needs to be told how to follow them.
   webpack: (config) => {
     config.resolve = config.resolve ?? {};
+    // Explicit alias so @/ resolves correctly in all build environments
+    // (e.g. Firebase App Hosting) where tsconfig path inference may not run.
+    config.resolve.alias = {
+      ...(typeof config.resolve.alias === 'object' && !Array.isArray(config.resolve.alias)
+        ? config.resolve.alias
+        : {}),
+      '@': path.resolve(__dirname, 'src'),
+    };
     config.resolve.extensionAlias = {
       ...(config.resolve.extensionAlias ?? {}),
       '.js': ['.ts', '.tsx', '.js'],
