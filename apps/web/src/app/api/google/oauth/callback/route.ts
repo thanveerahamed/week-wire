@@ -32,6 +32,9 @@ export async function GET(req: NextRequest): Promise<Response> {
     return redirectToCalendars(appUrl, { error: 'bad_state' });
   }
 
+  // redirect_uri must exactly match what was used in the authorization request.
+  // Google redirects back through the same public URL, so resolveOrigin(req)
+  // returns the correct host via x-forwarded-host headers.
   const client = oauthClient(oauthRedirectUriFromOrigin(appUrl));
   let tokens;
   try {

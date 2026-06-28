@@ -1,10 +1,9 @@
-import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { CalendarPlus, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { AlertCircle, CheckCircle2 } from 'lucide-react';
 import { getSession } from '@/lib/session';
 import { listCalendarAccounts, listSubCalendars } from '@/lib/calendars-repo';
-import { Button } from '@/components/ui/button';
 import { AccountCard, type CalendarRow } from '@/components/account-card';
+import { ConnectCalendarButton } from '@/components/connect-calendar-button';
 
 export const dynamic = 'force-dynamic';
 
@@ -50,12 +49,7 @@ export default async function CalendarsPage({ searchParams }: PageProps) {
             Connect one or more Google accounts and pick which calendars appear in your digest.
           </p>
         </div>
-        <Button asChild>
-          <a href="/api/google/oauth/start">
-            <CalendarPlus className="size-4" aria-hidden />
-            Connect Google Calendar
-          </a>
-        </Button>
+        <ConnectCalendarButton />
       </header>
 
       {connected ? (
