@@ -29,6 +29,23 @@ export function oauthRedirectUriFromOrigin(origin: string): string {
 }
 
 /**
+ * Resolve the public origin from a Next.js request.
+ * On Cloud Run / App Hosting the internal address is localhost:PORT, so we
+ * rely on the X-Forwarded-Host / X-Forwarded-Proto headers set by the GCP
+ * load balancer instead of req.url.
+ */
+export function resolveOrigin(req: { headers: { get(name: string): string | null } }): string {
+  const host = req.headers.get('x-forwarded-host');
+  if (host) {
+    const proto = req.headers.get('x-forwarded-proto') ?? 'https';
+    // x-forwarded-proto may be a comma-separated list; take the first.
+    return `${proto.split(',')[0]!.trim()}://${host}`;
+  }
+  // Local dev: fall back to the raw request URL origin.
+  return new URL((req as unknown as { url: string }).url).origin;
+}
+
+/**
  * Sign a short-lived state payload binding the OAuth flow to the current uid.
  * Format: `${base64url(json)}.${hex(hmac)}`.
  */

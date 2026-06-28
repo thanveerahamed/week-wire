@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { google } from 'googleapis';
 import { getSession } from '@/lib/session';
-import { oauthClient, oauthRedirectUriFromOrigin, verifyState } from '@/lib/google-oauth';
+import { oauthClient, oauthRedirectUriFromOrigin, resolveOrigin, verifyState } from '@/lib/google-oauth';
 import { syncCalendarList, upsertCalendarAccount } from '@/lib/calendars-repo';
 
 export const runtime = 'nodejs';
@@ -32,7 +32,7 @@ export async function GET(req: NextRequest): Promise<Response> {
     return redirectToCalendars(appUrl, { error: 'bad_state' });
   }
 
-  const client = oauthClient(oauthRedirectUriFromOrigin(new URL(req.url).origin));
+  const client = oauthClient(oauthRedirectUriFromOrigin(appUrl));
   let tokens;
   try {
     const exchange = await client.getToken(code);

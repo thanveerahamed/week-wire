@@ -51,10 +51,10 @@ export default async function CalendarsPage({ searchParams }: PageProps) {
           </p>
         </div>
         <Button asChild>
-          <Link href="/api/google/oauth/start">
+          <a href="/api/google/oauth/start">
             <CalendarPlus className="size-4" aria-hidden />
             Connect Google Calendar
-          </Link>
+          </a>
         </Button>
       </header>
 

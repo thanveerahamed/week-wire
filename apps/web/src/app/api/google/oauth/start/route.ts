@@ -5,6 +5,7 @@ import {
   newNonce,
   oauthClient,
   oauthRedirectUriFromOrigin,
+  resolveOrigin,
   signState,
 } from '@/lib/google-oauth';
 
@@ -12,7 +13,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest): Promise<Response> {
-  const origin = new URL(req.url).origin;
+  const origin = resolveOrigin(req);
   const session = await getSession();
   if (!session) {
     return NextResponse.redirect(new URL('/sign-in', origin));
