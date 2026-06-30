@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { TelegramBotTokenSchema } from '@week-wire/shared';
 import { getSession } from '@/lib/session';
 import { getMe, setWebhook, TelegramApiError } from '@/lib/telegram-api';
+import { resolveOrigin } from '@/lib/google-oauth';
 import {
   saveBotConfig,
   webhookSecretFor,
@@ -44,7 +45,7 @@ export async function POST(req: NextRequest): Promise<Response> {
 
   // Register webhook BEFORE persisting, so we never store a token we can't reach.
   try {
-    const origin = new URL(req.url).origin;
+    const origin = resolveOrigin(req);
     await setWebhook(parsed.botToken, {
       url: webhookUrlFor(session.uid, origin),
       secretToken: webhookSecretFor(session.uid),
