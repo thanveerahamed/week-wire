@@ -1,14 +1,19 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { google } from 'googleapis';
 import { getSession } from '@/lib/session';
-import { oauthClient, oauthRedirectUriFromOrigin, resolveOrigin, verifyState } from '@/lib/google-oauth';
+import {
+  oauthClient,
+  oauthRedirectUriFromOrigin,
+  resolveOrigin,
+  verifyState,
+} from '@/lib/google-oauth';
 import { syncCalendarList, upsertCalendarAccount } from '@/lib/calendars-repo';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest): Promise<Response> {
-  const appUrl = new URL(req.url).origin;
+  const appUrl = resolveOrigin(req);
 
   const session = await getSession();
   if (!session) {
@@ -84,10 +89,7 @@ export async function GET(req: NextRequest): Promise<Response> {
   return redirectToCalendars(appUrl, { connected: accountEmail });
 }
 
-function redirectToCalendars(
-  appUrl: string,
-  params: Record<string, string>,
-): Response {
+function redirectToCalendars(appUrl: string, params: Record<string, string>): Response {
   const dest = new URL('/app/calendars', appUrl);
   for (const [k, v] of Object.entries(params)) dest.searchParams.set(k, v);
   return NextResponse.redirect(dest);
