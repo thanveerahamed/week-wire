@@ -3,14 +3,7 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import {
-  CheckCircle2,
-  AlertCircle,
-  ExternalLink,
-  Trash2,
-  Send,
-  Copy,
-} from 'lucide-react';
+import { CheckCircle2, AlertCircle, ExternalLink, Trash2, Send, Copy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import type { TelegramStatus } from '@/lib/telegram-repo';
@@ -81,16 +74,13 @@ export function TelegramSetup({ status }: Props) {
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <p className="flex items-center gap-2 text-sm font-medium">
-                  <Send className="size-4 text-[var(--color-primary)]" aria-hidden />
-                  @{status.botUsername}
+                  <Send className="size-4 text-[var(--color-primary)]" aria-hidden />@
+                  {status.botUsername}
                 </p>
                 <p className="mt-1 flex items-center gap-1.5 text-xs text-[var(--color-muted-foreground)]">
                   {status.chatLinked ? (
                     <>
-                      <CheckCircle2
-                        className="size-3.5 text-[var(--color-primary)]"
-                        aria-hidden
-                      />
+                      <CheckCircle2 className="size-3.5 text-[var(--color-primary)]" aria-hidden />
                       Chat linked. You will receive digests.
                     </>
                   ) : (

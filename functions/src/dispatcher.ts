@@ -66,9 +66,7 @@ export const dispatchDigests = onSchedule(
     const uids = snap.docs.map((d) => d.id);
     for (let i = 0; i < uids.length; i += CHUNK) {
       const slice = uids.slice(i, i + CHUNK);
-      const results = await Promise.allSettled(
-        slice.map((uid) => publishUser(uid, runId, slot)),
-      );
+      const results = await Promise.allSettled(slice.map((uid) => publishUser(uid, runId, slot)));
       for (const r of results) {
         if (r.status === 'fulfilled') published++;
         else {

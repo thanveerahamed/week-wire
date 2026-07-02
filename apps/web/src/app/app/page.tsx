@@ -10,9 +10,7 @@ export default async function AppHomePage() {
   return (
     <div className="flex flex-col gap-6">
       <section>
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-          Hi {first} — welcome.
-        </h1>
+        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Hi {first} — welcome.</h1>
         <p className="mt-2 text-[var(--color-muted-foreground)]">
           Three quick steps to get your first digest in Telegram.
         </p>

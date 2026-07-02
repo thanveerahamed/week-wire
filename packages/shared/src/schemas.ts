@@ -82,7 +82,7 @@ export const DigestEventSchema = z.object({
   title: z.string(),
   location: z.string().nullable(),
   start: z.string(), // ISO
-  end: z.string(),   // ISO
+  end: z.string(), // ISO
   allDay: z.boolean(),
 });
 

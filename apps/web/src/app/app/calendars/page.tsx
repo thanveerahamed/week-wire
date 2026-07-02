@@ -53,13 +53,13 @@ export default async function CalendarsPage({ searchParams }: PageProps) {
       </header>
 
       {connected ? (
-        <div className="flex items-center gap-2 rounded-md border border-[var(--color-primary)]/30 bg-[var(--color-primary)]/10 px-3 py-2 text-sm">
+        <div className="border-[var(--color-primary)]/30 bg-[var(--color-primary)]/10 flex items-center gap-2 rounded-md border px-3 py-2 text-sm">
           <CheckCircle2 className="size-4 text-[var(--color-primary)]" aria-hidden />
           Connected <span className="font-medium">{connected}</span>.
         </div>
       ) : null}
       {error ? (
-        <div className="flex items-start gap-2 rounded-md border border-[var(--color-destructive)]/30 bg-[var(--color-destructive)]/10 px-3 py-2 text-sm">
+        <div className="border-[var(--color-destructive)]/30 bg-[var(--color-destructive)]/10 flex items-start gap-2 rounded-md border px-3 py-2 text-sm">
           <AlertCircle className="mt-0.5 size-4 text-[var(--color-destructive)]" aria-hidden />
           <span>{ERROR_MESSAGES[error] ?? `Connection failed (${error}).`}</span>
         </div>

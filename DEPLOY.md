@@ -1,6 +1,6 @@
 # week-wire — Deploy & Verify (Phase 7)
 
-Project id: **`week-wire`**  •  Region: **`europe-west1`**
+Project id: **`week-wire`** • Region: **`europe-west1`**
 
 `.firebaserc` pins the project so every `firebase` command without `--project`
 also targets `week-wire`. `gcloud` commands below pass `--project=week-wire`
@@ -92,6 +92,7 @@ pnpm deploy:functions
 ```
 
 Deploys:
+
 - **`dispatchDigests`** — Cloud Scheduler job
   `firebase-schedule-dispatchDigests-europe-west1`, cron `0 7,19 * * *`,
   TZ `Europe/Amsterdam`.
@@ -121,6 +122,7 @@ Then:
 ## 6. Verification
 
 ### a. Web sign-in & calendar link
+
 1. Open `https://<APP_HOST>`, sign in with Google.
 2. `/app/calendars` → Connect → enable a sub-calendar.
 3. `/app/telegram` → paste bot token from @BotFather → `/start` link.
@@ -143,19 +145,23 @@ Expect `digest sent {eventCount: N}` or a `skipped` log with a reason
 chat.
 
 Inspect the idempotency doc:
+
 ```bash
 gcloud firestore documents describe "runs/${RUN_ID}_${UID}" --project=week-wire
 ```
 
 ### c. Scheduler dry-run
+
 ```bash
 gcloud scheduler jobs run firebase-schedule-dispatchDigests-europe-west1 \
   --location=europe-west1 --project=week-wire
 pnpm logs:dispatcher
 ```
+
 Expect `dispatch complete {published: N, failed: 0, total: N}`.
 
 ### d. End-to-end wait
+
 Wait for the next natural `07:00` or `19:00` Europe/Amsterdam tick — confirm
 the Telegram digest arrives.
 
@@ -180,18 +186,18 @@ firebase apphosting:rollouts:rollback <rolloutId> --project=week-wire
 - `runs/{runId}_{uid}` documents have a 7-day TTL via `expiresAt`; Firestore
   cleans them up automatically.
 - Telegram 401/403 → worker sets `users/{uid}/telegram/config.chatLinked = false`
-  + writes `lastError`. Surface this in UI in a follow-up.
+  - writes `lastError`. Surface this in UI in a follow-up.
 - Transient telegram errors (5xx, 429) re-throw after releasing the run claim;
   Pub/Sub redelivers via its default exponential backoff. Configure a dead-letter
   topic if you observe persistent retries.
 
 ## Quick reference (pnpm scripts)
 
-| script | what it does |
-| --- | --- |
-| `pnpm deploy:rules` | firestore rules + indexes |
+| script                  | what it does                          |
+| ----------------------- | ------------------------------------- |
+| `pnpm deploy:rules`     | firestore rules + indexes             |
 | `pnpm deploy:functions` | cloud functions (dispatcher + worker) |
-| `pnpm deploy:hosting` | App Hosting rollout |
-| `pnpm deploy:all` | everything `firebase deploy` covers |
-| `pnpm logs:dispatcher` | tail `dispatchDigests` logs |
-| `pnpm logs:worker` | tail `sendUserDigest` logs |
+| `pnpm deploy:hosting`   | App Hosting rollout                   |
+| `pnpm deploy:all`       | everything `firebase deploy` covers   |
+| `pnpm logs:dispatcher`  | tail `dispatchDigests` logs           |
+| `pnpm logs:worker`      | tail `sendUserDigest` logs            |

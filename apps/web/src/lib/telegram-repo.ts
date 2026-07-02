@@ -128,6 +128,21 @@ export async function loadBotToken(uid: string): Promise<string | null> {
   }
 }
 
+export async function getLinkedChat(
+  uid: string,
+): Promise<{ chatId: number; botToken: string } | null> {
+  const snap = await configRef(uid).get();
+  const data = snap.data();
+  const chatId = data?.chatId as number | undefined;
+  const enc = data?.botTokenEnc as string | undefined;
+  if (typeof chatId !== 'number' || !enc) return null;
+  try {
+    return { chatId, botToken: decryptField(enc) };
+  } catch {
+    return null;
+  }
+}
+
 export async function setLinkedChat(uid: string, chatId: number): Promise<void> {
   await configRef(uid).set(
     {

@@ -12,10 +12,7 @@ export async function PATCH(req: Request): Promise<Response> {
 
   const parsed = UserPrefsUpdateSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'invalid', issues: parsed.error.issues },
-      { status: 400 },
-    );
+    return NextResponse.json({ error: 'invalid', issues: parsed.error.issues }, { status: 400 });
   }
 
   await updateUserPrefs(session.uid, parsed.data);

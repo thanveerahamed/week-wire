@@ -4,11 +4,7 @@ import { TelegramBotTokenSchema } from '@week-wire/shared';
 import { getSession } from '@/lib/session';
 import { getMe, setWebhook, TelegramApiError } from '@/lib/telegram-api';
 import { resolveOrigin } from '@/lib/google-oauth';
-import {
-  saveBotConfig,
-  webhookSecretFor,
-  webhookUrlFor,
-} from '@/lib/telegram-repo';
+import { saveBotConfig, webhookSecretFor, webhookUrlFor } from '@/lib/telegram-repo';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -23,7 +19,7 @@ export async function POST(req: NextRequest): Promise<Response> {
   try {
     parsed = Body.parse(await req.json());
   } catch (err) {
-    const message = err instanceof z.ZodError ? err.issues[0]?.message ?? 'invalid' : 'invalid';
+    const message = err instanceof z.ZodError ? (err.issues[0]?.message ?? 'invalid') : 'invalid';
     return NextResponse.json({ error: message }, { status: 400 });
   }
 
@@ -32,11 +28,8 @@ export async function POST(req: NextRequest): Promise<Response> {
     me = await getMe(parsed.botToken);
   } catch (err) {
     const description =
-      err instanceof TelegramApiError ? err.description ?? err.message : 'getMe failed';
-    return NextResponse.json(
-      { error: 'invalid_token', description },
-      { status: 400 },
-    );
+      err instanceof TelegramApiError ? (err.description ?? err.message) : 'getMe failed';
+    return NextResponse.json({ error: 'invalid_token', description }, { status: 400 });
   }
 
   if (!me.is_bot || !me.username) {
@@ -52,11 +45,8 @@ export async function POST(req: NextRequest): Promise<Response> {
     });
   } catch (err) {
     const description =
-      err instanceof TelegramApiError ? err.description ?? err.message : 'setWebhook failed';
-    return NextResponse.json(
-      { error: 'webhook_failed', description },
-      { status: 502 },
-    );
+      err instanceof TelegramApiError ? (err.description ?? err.message) : 'setWebhook failed';
+    return NextResponse.json({ error: 'webhook_failed', description }, { status: 502 });
   }
 
   const { linkSecret } = await saveBotConfig(session.uid, {

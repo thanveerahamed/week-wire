@@ -15,7 +15,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="flex min-h-dvh flex-col">
-      <header className="sticky top-0 z-30 border-b bg-[var(--color-background)]/85 backdrop-blur">
+      <header className="bg-[var(--color-background)]/85 sticky top-0 z-30 border-b backdrop-blur">
         <div className="mx-auto flex h-14 max-w-3xl items-center justify-between px-4">
           <Link href="/app" className="flex items-center gap-2 font-semibold tracking-tight">
             <span className="inline-block size-3 rounded-full bg-[var(--color-primary)]" />

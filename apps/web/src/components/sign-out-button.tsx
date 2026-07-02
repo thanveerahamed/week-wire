@@ -23,7 +23,13 @@ export function SignOutButton() {
   }
 
   return (
-    <Button variant="ghost" size="sm" onClick={handleClick} disabled={pending} aria-label="Sign out">
+    <Button
+      variant="ghost"
+      size="sm"
+      onClick={handleClick}
+      disabled={pending}
+      aria-label="Sign out"
+    >
       <LogOut className="size-4" aria-hidden />
       <span className="hidden sm:inline">Sign out</span>
     </Button>

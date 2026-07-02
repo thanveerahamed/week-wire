@@ -46,7 +46,11 @@ const UpdateSchema = z.object({
     .optional(),
 });
 
-const UidSchema = z.string().min(1).max(128).regex(/^[A-Za-z0-9_-]+$/u);
+const UidSchema = z
+  .string()
+  .min(1)
+  .max(128)
+  .regex(/^[A-Za-z0-9_-]+$/u);
 
 export async function POST(
   req: NextRequest,

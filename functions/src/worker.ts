@@ -105,11 +105,7 @@ async function releaseRun(uid: string, runId: string): Promise<void> {
   }
 }
 
-async function markRun(
-  uid: string,
-  runId: string,
-  patch: Record<string, unknown>,
-): Promise<void> {
+async function markRun(uid: string, runId: string, patch: Record<string, unknown>): Promise<void> {
   await runRef(uid, runId).set(
     { ...patch, finishedAt: FieldValue.serverTimestamp() },
     { merge: true },

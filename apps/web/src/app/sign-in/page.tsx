@@ -85,8 +85,8 @@ function SignInInner() {
           <CardHeader>
             <CardTitle>Sign in to WeekWire</CardTitle>
             <CardDescription>
-              Use your Google account. We only ask for your email and profile here — calendar
-              access is granted later, per account.
+              Use your Google account. We only ask for your email and profile here — calendar access
+              is granted later, per account.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
@@ -105,11 +105,7 @@ function SignInInner() {
   );
 }
 
-async function exchangeAndGo(
-  idToken: string,
-  from: string,
-  router: ReturnType<typeof useRouter>,
-) {
+async function exchangeAndGo(idToken: string, from: string, router: ReturnType<typeof useRouter>) {
   const res = await fetch('/api/auth/session', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },

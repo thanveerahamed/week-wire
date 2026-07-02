@@ -162,13 +162,16 @@ export function PreferencesForm({ initial }: Props) {
 
 interface PreviewProps {
   enabled: boolean;
+  telegramLinked: boolean;
 }
 
-export function DigestPreview({ enabled }: PreviewProps) {
+export function DigestPreview({ enabled, telegramLinked }: PreviewProps) {
   const [markdown, setMarkdown] = useState<string | null>(null);
   const [eventCount, setEventCount] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, startLoading] = useTransition();
+  const [sendResult, setSendResult] = useState<'ok' | 'error' | null>(null);
+  const [sending, startSending] = useTransition();
 
   function load() {
     setError(null);
@@ -188,6 +191,14 @@ export function DigestPreview({ enabled }: PreviewProps) {
     });
   }
 
+  function sendToTelegram() {
+    setSendResult(null);
+    startSending(async () => {
+      const res = await fetch('/api/telegram/send-preview', { method: 'POST' });
+      setSendResult(res.ok ? 'ok' : 'error');
+    });
+  }
+
   return (
     <motion.div
       layout
@@ -198,15 +209,41 @@ export function DigestPreview({ enabled }: PreviewProps) {
           <Send className="size-4 text-[var(--color-primary)]" aria-hidden />
           <p className="text-sm font-medium">Digest preview</p>
         </div>
-        <Button size="sm" variant="ghost" onClick={load} disabled={loading || !enabled}>
-          <RefreshCw className={`size-4 ${loading ? 'animate-spin' : ''}`} aria-hidden />
-          {markdown == null ? 'Generate' : 'Refresh'}
-        </Button>
+        <div className="flex items-center gap-2">
+          {telegramLinked ? (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={sendToTelegram}
+              disabled={sending || !enabled}
+            >
+              <Send className="size-4" aria-hidden />
+              {sending ? 'Sending…' : 'Send to Telegram'}
+            </Button>
+          ) : null}
+          <Button size="sm" variant="ghost" onClick={load} disabled={loading || !enabled}>
+            <RefreshCw className={`size-4 ${loading ? 'animate-spin' : ''}`} aria-hidden />
+            {markdown == null ? 'Generate' : 'Refresh'}
+          </Button>
+        </div>
       </div>
 
       {!enabled ? (
         <p className="text-xs text-[var(--color-muted-foreground)]">
           Notifications are paused. Re-enable to preview.
+        </p>
+      ) : null}
+
+      {telegramLinked && sendResult ? (
+        <p
+          className={
+            sendResult === 'ok'
+              ? 'text-sm text-[var(--color-primary)]'
+              : 'text-sm text-[var(--color-destructive)]'
+          }
+          role="status"
+        >
+          {sendResult === 'ok' ? 'Sent! Check Telegram.' : 'Could not send to Telegram.'}
         </p>
       ) : null}
 
@@ -222,7 +259,7 @@ export function DigestPreview({ enabled }: PreviewProps) {
             {eventCount} event{eventCount === 1 ? '' : 's'} in window. Raw MarkdownV2 below — this
             is exactly what your bot will send.
           </p>
-          <pre className="max-h-96 overflow-auto whitespace-pre-wrap rounded-md border bg-[var(--color-muted)]/40 p-3 text-xs leading-relaxed">
+          <pre className="bg-[var(--color-muted)]/40 max-h-96 overflow-auto whitespace-pre-wrap rounded-md border p-3 text-xs leading-relaxed">
             {markdown}
           </pre>
         </>

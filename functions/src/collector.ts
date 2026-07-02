@@ -19,11 +19,7 @@ export async function collectUpcomingEvents(args: {
   now?: Date;
 }): Promise<DigestEvent[]> {
   const { uid, lookaheadDays, timezone, now = new Date() } = args;
-  const accountsSnap = await db
-    .collection('users')
-    .doc(uid)
-    .collection('calendarAccounts')
-    .get();
+  const accountsSnap = await db.collection('users').doc(uid).collection('calendarAccounts').get();
 
   const timeMin = now.toISOString();
   const timeMax = new Date(now.getTime() + lookaheadDays * 86_400_000).toISOString();
