@@ -22,7 +22,10 @@ export default async function SettingsPage() {
       </header>
 
       <PreferencesForm initial={prefs} />
-      <DigestPreview enabled={prefs.enabled} telegramLinked={telegram.chatLinked} />
+      <DigestPreview
+        enabled={prefs.enabled}
+        telegramLinked={telegram.chatLinked || telegram.channelLinked}
+      />
     </div>
   );
 }

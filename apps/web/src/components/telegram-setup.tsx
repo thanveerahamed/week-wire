@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CheckCircle2, AlertCircle, ExternalLink, Trash2, Send, Copy } from 'lucide-react';
+import { CheckCircle2, AlertCircle, ExternalLink, Trash2, Send, Copy, Radio } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import type { TelegramStatus } from '@/lib/telegram-repo';
@@ -19,6 +19,11 @@ export function TelegramSetup({ status }: Props) {
   const [saving, startSaving] = useTransition();
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [removing, startRemoving] = useTransition();
+
+  const [channelId, setChannelId] = useState('');
+  const [channelError, setChannelError] = useState<string | null>(null);
+  const [linkingChannel, startLinkingChannel] = useTransition();
+  const [unlinkingChannel, startUnlinkingChannel] = useTransition();
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -50,6 +55,35 @@ export function TelegramSetup({ status }: Props) {
     startRemoving(async () => {
       await fetch('/api/telegram', { method: 'DELETE' });
       setConfirmRemove(false);
+      router.refresh();
+    });
+  }
+
+  function linkChannelSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setChannelError(null);
+    startLinkingChannel(async () => {
+      const res = await fetch('/api/telegram/channel', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ channelId: channelId.trim() }),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        description?: string;
+      };
+      if (!res.ok) {
+        setChannelError(data.description ?? humanChannelError(data.error));
+        return;
+      }
+      setChannelId('');
+      router.refresh();
+    });
+  }
+
+  function unlinkChannel() {
+    startUnlinkingChannel(async () => {
+      await fetch('/api/telegram/channel', { method: 'DELETE' });
       router.refresh();
     });
   }
@@ -128,6 +162,57 @@ export function TelegramSetup({ status }: Props) {
                 </Button>
               </div>
             ) : null}
+
+            <hr className="mt-4 border-t" />
+
+            <div className="mt-4 flex flex-col gap-2">
+              <p className="flex items-center gap-2 text-sm font-medium">
+                <Radio className="size-4 text-[var(--color-primary)]" aria-hidden />
+                Channel
+              </p>
+              {status.channelLinked ? (
+                <div className="flex items-center justify-between gap-3">
+                  <p className="flex items-center gap-1.5 text-xs text-[var(--color-muted-foreground)]">
+                    <CheckCircle2 className="size-3.5 text-[var(--color-primary)]" aria-hidden />
+                    Posting digests to{' '}
+                    {status.channelUsername ? `@${status.channelUsername}` : status.channelTitle}
+                  </p>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={unlinkChannel}
+                    disabled={unlinkingChannel}
+                  >
+                    <Trash2 className="size-4" aria-hidden />
+                    Unlink
+                  </Button>
+                </div>
+              ) : (
+                <form onSubmit={linkChannelSubmit} className="flex flex-col gap-2">
+                  <p className="text-xs text-[var(--color-muted-foreground)]">
+                    Add @{status.botUsername} as an admin of a channel, then paste its @username or
+                    numeric id below to also post digests there.
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      placeholder="@my_channel or -1001234567890"
+                      value={channelId}
+                      onChange={(e) => setChannelId(e.target.value)}
+                      spellCheck={false}
+                      autoComplete="off"
+                    />
+                    <Button type="submit" size="sm" disabled={linkingChannel || !channelId.trim()}>
+                      {linkingChannel ? 'Linking…' : 'Link'}
+                    </Button>
+                  </div>
+                  {channelError ? (
+                    <span role="alert" className="text-sm text-[var(--color-destructive)]">
+                      {channelError}
+                    </span>
+                  ) : null}
+                </form>
+              )}
+            </div>
           </motion.div>
         ) : (
           <motion.form
@@ -189,6 +274,23 @@ function humanError(code?: string): string {
       return 'That token does not belong to a bot.';
     case 'webhook_failed':
       return 'Could not register the webhook. Check your public URL.';
+    case 'unauthorized':
+      return 'Please sign in again.';
+    default:
+      return code ?? 'Something went wrong.';
+  }
+}
+
+function humanChannelError(code?: string): string {
+  switch (code) {
+    case 'bot_not_configured':
+      return 'Connect a bot above first.';
+    case 'channel_not_found':
+      return 'Telegram could not find that channel.';
+    case 'not_a_channel':
+      return 'That id is not a channel.';
+    case 'bot_not_admin':
+      return 'Add the bot as an admin of the channel first.';
     case 'unauthorized':
       return 'Please sign in again.';
     default:

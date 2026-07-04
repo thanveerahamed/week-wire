@@ -62,6 +62,29 @@ export function getMe(botToken: string): Promise<TgGetMe> {
   return call<TgGetMe>(botToken, 'getMe');
 }
 
+export interface TgChat {
+  id: number;
+  type: string;
+  title?: string;
+  username?: string;
+}
+
+export function getChat(botToken: string, chatId: string): Promise<TgChat> {
+  return call<TgChat>(botToken, 'getChat', { chat_id: chatId });
+}
+
+export interface TgChatMember {
+  status: string;
+}
+
+export function getChatMember(
+  botToken: string,
+  chatId: string,
+  userId: number,
+): Promise<TgChatMember> {
+  return call<TgChatMember>(botToken, 'getChatMember', { chat_id: chatId, user_id: userId });
+}
+
 export function setWebhook(
   botToken: string,
   args: { url: string; secretToken: string },

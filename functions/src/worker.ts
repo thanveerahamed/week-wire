@@ -62,6 +62,7 @@ async function loadPrefs(uid: string): Promise<UserPrefs | null> {
 interface TelegramConfig {
   botTokenEnc: string;
   chatId: number | null;
+  channelChatId: number | null;
 }
 
 async function loadTelegram(uid: string): Promise<TelegramConfig | null> {
@@ -71,7 +72,8 @@ async function loadTelegram(uid: string): Promise<TelegramConfig | null> {
   const botTokenEnc = typeof data.botTokenEnc === 'string' ? data.botTokenEnc : null;
   if (!botTokenEnc) return null;
   const chatId = typeof data.chatId === 'number' ? data.chatId : null;
-  return { botTokenEnc, chatId };
+  const channelChatId = typeof data.channelChatId === 'number' ? data.channelChatId : null;
+  return { botTokenEnc, chatId, channelChatId };
 }
 
 function runRef(uid: string, runId: string) {
@@ -150,8 +152,14 @@ export const sendUserDigest = onMessagePublished(
         await markRun(uid, runId, { status: 'skipped', reason: 'no-telegram' });
         return;
       }
-      if (tg.chatId == null) {
-        logger.info('chat not linked; skipping', ctx);
+      const destinations: Array<{ type: 'dm' | 'channel'; chatId: number }> = [
+        ...(tg.chatId != null ? [{ type: 'dm' as const, chatId: tg.chatId }] : []),
+        ...(tg.channelChatId != null
+          ? [{ type: 'channel' as const, chatId: tg.channelChatId }]
+          : []),
+      ];
+      if (destinations.length === 0) {
+        logger.info('no destination linked; skipping', ctx);
         await markRun(uid, runId, { status: 'skipped', reason: 'no-chat' });
         return;
       }
@@ -176,64 +184,102 @@ export const sendUserDigest = onMessagePublished(
         return;
       }
 
-      try {
-        await sendMessage(botToken, {
-          chat_id: tg.chatId,
-          text: markdown,
-          parse_mode: 'MarkdownV2',
-        });
-      } catch (err) {
-        if (err instanceof TelegramSendError) {
-          logger.warn('telegram send failed', {
-            ...ctx,
-            errorCode: err.errorCode,
-            retryable: err.retryable,
-            description: err.message,
-          });
-          if (err.errorCode === 401 || err.errorCode === 403) {
-            await db
-              .collection('users')
-              .doc(uid)
-              .collection('telegram')
-              .doc('config')
-              .set(
-                {
-                  lastError: {
-                    code: err.errorCode,
-                    message: err.message,
-                    at: FieldValue.serverTimestamp(),
-                  },
-                  chatLinked: false,
-                },
-                { merge: true },
-              );
-            await markRun(uid, runId, {
-              status: 'failed',
-              reason: 'telegram-perm',
-              errorCode: err.errorCode,
+      const results = await Promise.all(
+        destinations.map(async (dest) => {
+          try {
+            await sendMessage(botToken, {
+              chat_id: dest.chatId,
+              text: markdown,
+              parse_mode: 'MarkdownV2',
             });
-            return;
-          }
-          if (err.retryable) {
-            await releaseRun(uid, runId);
+            return { ...dest, ok: true as const };
+          } catch (err) {
+            if (err instanceof TelegramSendError) {
+              logger.warn('telegram send failed', {
+                ...ctx,
+                destination: dest.type,
+                errorCode: err.errorCode,
+                retryable: err.retryable,
+                description: err.message,
+              });
+              return { ...dest, ok: false as const, err };
+            }
             throw err;
           }
-          await markRun(uid, runId, {
-            status: 'failed',
-            reason: 'telegram-other',
-            errorCode: err.errorCode,
-          });
-          return;
+        }),
+      );
+
+      const succeeded = results.filter((r) => r.ok);
+      const failed = results.filter((r): r is (typeof results)[number] & { ok: false } => !r.ok);
+
+      // Invalidate credentials that are permanently rejected (bot blocked/removed/kicked).
+      for (const f of failed) {
+        if (f.err.errorCode !== 401 && f.err.errorCode !== 403) continue;
+        if (f.type === 'dm') {
+          await db
+            .collection('users')
+            .doc(uid)
+            .collection('telegram')
+            .doc('config')
+            .set(
+              {
+                lastError: {
+                  code: f.err.errorCode,
+                  message: f.err.message,
+                  at: FieldValue.serverTimestamp(),
+                },
+                chatLinked: false,
+              },
+              { merge: true },
+            );
+        } else {
+          await db
+            .collection('users')
+            .doc(uid)
+            .collection('telegram')
+            .doc('config')
+            .set(
+              {
+                channelChatId: FieldValue.delete(),
+                channelTitle: FieldValue.delete(),
+                channelUsername: FieldValue.delete(),
+                lastChannelError: {
+                  code: f.err.errorCode,
+                  message: f.err.message,
+                  at: FieldValue.serverTimestamp(),
+                },
+              },
+              { merge: true },
+            );
         }
-        await releaseRun(uid, runId);
-        throw err;
+      }
+
+      if (succeeded.length === 0) {
+        // Nothing got through. Retry the whole run if any failure looks transient;
+        // safe because no destination has received the digest yet.
+        const retryable = failed.some((f) => f.err.retryable);
+        if (retryable) {
+          await releaseRun(uid, runId);
+          throw failed.find((f) => f.err.retryable)!.err;
+        }
+        await markRun(uid, runId, {
+          status: 'failed',
+          reason: 'telegram-other',
+          errorCode: failed[0]?.err.errorCode,
+        });
+        return;
       }
 
       await markRun(uid, runId, {
         status: 'sent',
         eventCount: events.length,
+        destinations: succeeded.map((r) => r.type),
       });
-      logger.info('digest sent', { ...ctx, eventCount: events.length });
+      logger.info('digest sent', {
+        ...ctx,
+        eventCount: events.length,
+        destinations: succeeded.map((r) => r.type),
+      });
     } catch (err) {
       logger.error('digest run failed', { ...ctx, err });
       throw err;

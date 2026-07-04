@@ -11,6 +11,9 @@ export interface TelegramStatus {
   chatLinked: boolean;
   linkSecret: string | null;
   webhookSetAt: number | null;
+  channelLinked: boolean;
+  channelTitle: string | null;
+  channelUsername: string | null;
 }
 
 function configRef(uid: string) {
@@ -47,6 +50,9 @@ export async function getStatus(uid: string): Promise<TelegramStatus> {
       chatLinked: false,
       linkSecret: null,
       webhookSetAt: null,
+      channelLinked: false,
+      channelTitle: null,
+      channelUsername: null,
     };
   }
   const data = snap.data() ?? {};
@@ -56,6 +62,9 @@ export async function getStatus(uid: string): Promise<TelegramStatus> {
     chatLinked: typeof data.chatId === 'number',
     linkSecret: (data.linkSecret as string | undefined) ?? null,
     webhookSetAt: (data.webhookSetAt as number | undefined) ?? null,
+    channelLinked: typeof data.channelChatId === 'number',
+    channelTitle: (data.channelTitle as string | undefined) ?? null,
+    channelUsername: (data.channelUsername as string | undefined) ?? null,
   };
 }
 
@@ -148,6 +157,50 @@ export async function setLinkedChat(uid: string, chatId: number): Promise<void> 
     {
       chatId,
       linkedAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+    },
+    { merge: true },
+  );
+}
+
+export async function getLinkedChannel(
+  uid: string,
+): Promise<{ chatId: number; title: string | null; botToken: string } | null> {
+  const snap = await configRef(uid).get();
+  const data = snap.data();
+  const chatId = data?.channelChatId as number | undefined;
+  const enc = data?.botTokenEnc as string | undefined;
+  if (typeof chatId !== 'number' || !enc) return null;
+  try {
+    return { chatId, title: (data?.channelTitle as string | undefined) ?? null, botToken: decryptField(enc) };
+  } catch {
+    return null;
+  }
+}
+
+export async function linkChannel(
+  uid: string,
+  args: { chatId: number; title: string | null; username: string | null },
+): Promise<void> {
+  await configRef(uid).set(
+    {
+      channelChatId: args.chatId,
+      channelTitle: args.title,
+      channelUsername: args.username,
+      channelLinkedAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+    },
+    { merge: true },
+  );
+}
+
+export async function unlinkChannel(uid: string): Promise<void> {
+  await configRef(uid).set(
+    {
+      channelChatId: FieldValue.delete(),
+      channelTitle: FieldValue.delete(),
+      channelUsername: FieldValue.delete(),
+      channelLinkedAt: FieldValue.delete(),
       updatedAt: FieldValue.serverTimestamp(),
     },
     { merge: true },
