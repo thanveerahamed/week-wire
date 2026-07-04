@@ -46,6 +46,16 @@ function formatDayHeading(dateKey: string, timezone: string): string {
   }).format(anchor);
 }
 
+/** Format "now" as a short date label (e.g. "Fri 4 Jul") in the given timezone. */
+export function formatDigestDateLabel(now: Date, timezone: string): string {
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone: timezone,
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+  }).format(now);
+}
+
 function formatTimeRange(ev: DigestEvent, timezone: string): string {
   if (ev.allDay) return 'all day';
   const fmt = new Intl.DateTimeFormat('en-GB', {

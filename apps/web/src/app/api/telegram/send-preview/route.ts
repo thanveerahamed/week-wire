@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { formatDigest } from '@week-wire/shared';
+import { formatDigest, formatDigestDateLabel } from '@week-wire/shared';
 import { getSession } from '@/lib/session';
 import { getUserPrefs } from '@/lib/prefs-repo';
 import { collectUpcomingEvents } from '@/lib/events-collector';
@@ -54,7 +54,11 @@ export async function POST(): Promise<Response> {
     lookaheadDays: prefs.lookaheadDays,
     timezone: prefs.timezone,
   });
-  const markdown = formatDigest(events, { timezone: prefs.timezone, title: 'WeekWire preview' });
+  const dateLabel = formatDigestDateLabel(new Date(), prefs.timezone);
+  const markdown = formatDigest(events, {
+    timezone: prefs.timezone,
+    title: `WeekWire preview – ${dateLabel}`,
+  });
 
   const results = await Promise.all([
     dm ? sendTo('dm', dm.botToken, dm.chatId, markdown) : null,

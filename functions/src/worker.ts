@@ -10,7 +10,7 @@ import { onMessagePublished } from 'firebase-functions/v2/pubsub';
 import { logger } from 'firebase-functions/v2';
 import { defineSecret } from 'firebase-functions/params';
 import { db, FieldValue, Timestamp } from './firebase';
-import { decryptField, formatDigest } from './shared-vendored';
+import { decryptField, formatDigest, formatDigestDateLabel } from './shared-vendored';
 import { collectUpcomingEvents } from './collector';
 import { sendMessage, TelegramSendError } from './telegram';
 
@@ -170,9 +170,10 @@ export const sendUserDigest = onMessagePublished(
         timezone: prefs.timezone,
       });
       const titleSuffix = slot === '07' ? 'morning' : 'evening';
+      const dateLabel = formatDigestDateLabel(new Date(), prefs.timezone);
       const markdown = formatDigest(events, {
         timezone: prefs.timezone,
-        title: `WeekWire ${titleSuffix}`,
+        title: `WeekWire ${titleSuffix} – ${dateLabel}`,
       });
 
       let botToken: string;
