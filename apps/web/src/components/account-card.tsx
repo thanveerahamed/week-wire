@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { Star, Trash2 } from 'lucide-react';
+import { Star, Trash2, RefreshCw } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 
@@ -24,6 +24,8 @@ export function AccountCard({ accountEmail, calendars }: Props) {
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [removing, startRemoving] = useTransition();
   const [confirming, setConfirming] = useState(false);
+  const [resyncing, startResyncing] = useTransition();
+  const [resyncError, setResyncError] = useState<string | null>(null);
 
   async function toggle(calendarId: string, next: boolean) {
     setPendingId(calendarId);
@@ -54,6 +56,21 @@ export function AccountCard({ accountEmail, calendars }: Props) {
     });
   }
 
+  function resync() {
+    setResyncError(null);
+    startResyncing(async () => {
+      const res = await fetch(`/api/calendars/${encodeURIComponent(accountEmail)}/resync`, {
+        method: 'POST',
+      });
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) {
+        setResyncError(humanResyncError(data.error));
+        return;
+      }
+      router.refresh();
+    });
+  }
+
   return (
     <motion.div
       layout
@@ -69,16 +86,27 @@ export function AccountCard({ accountEmail, calendars }: Props) {
             {calendars.length} calendar{calendars.length === 1 ? '' : 's'} •{' '}
             {calendars.filter((c) => c.enabled).length} enabled
           </p>
+          {resyncError ? (
+            <p role="alert" className="mt-1 text-xs text-[var(--color-destructive)]">
+              {resyncError}
+            </p>
+          ) : null}
         </div>
-        <Button
-          variant={confirming ? 'destructive' : 'ghost'}
-          size="sm"
-          onClick={disconnect}
-          disabled={removing}
-        >
-          <Trash2 className="size-4" aria-hidden />
-          {confirming ? 'Confirm remove' : 'Remove'}
-        </Button>
+        <div className="flex shrink-0 items-center gap-2">
+          <Button variant="ghost" size="sm" onClick={resync} disabled={resyncing}>
+            <RefreshCw className={`size-4 ${resyncing ? 'animate-spin' : ''}`} aria-hidden />
+            {resyncing ? 'Syncing…' : 'Resync'}
+          </Button>
+          <Button
+            variant={confirming ? 'destructive' : 'ghost'}
+            size="sm"
+            onClick={disconnect}
+            disabled={removing}
+          >
+            <Trash2 className="size-4" aria-hidden />
+            {confirming ? 'Confirm remove' : 'Remove'}
+          </Button>
+        </div>
       </div>
 
       <ul className="divide-y">
@@ -111,4 +139,17 @@ export function AccountCard({ accountEmail, calendars }: Props) {
       </ul>
     </motion.div>
   );
+}
+
+function humanResyncError(code?: string): string {
+  switch (code) {
+    case 'needs_reauth':
+      return 'Google needs you to reconnect this account.';
+    case 'not_found':
+      return 'This account is no longer connected.';
+    case 'sync_failed':
+      return 'Could not reach Google Calendar. Try again shortly.';
+    default:
+      return code ?? 'Something went wrong.';
+  }
 }

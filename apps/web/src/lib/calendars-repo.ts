@@ -1,7 +1,9 @@
 import 'server-only';
+import { google } from 'googleapis';
 import { FieldValue } from 'firebase-admin/firestore';
-import { encryptField } from '@week-wire/shared';
+import { decryptField, encryptField } from '@week-wire/shared';
 import { adminDb } from './firebase-admin';
+import { oauthClient } from './google-oauth';
 import type { CalendarListEntry } from './google-oauth';
 
 export interface StoredCalendarAccount {
@@ -140,4 +142,41 @@ export async function deleteCalendarAccount(uid: string, accountEmail: string): 
   for (const d of snap.docs) batch.delete(d.ref);
   batch.delete(accountsCol(uid).doc(accountEmail));
   await batch.commit();
+}
+
+/**
+ * Re-fetch the calendar list for an already-connected account using its
+ * stored refresh token (no OAuth redirect required). Picks up newly
+ * created/shared calendars without disturbing existing enabled toggles.
+ */
+export async function resyncCalendarAccount(
+  uid: string,
+  accountEmail: string,
+): Promise<{ ok: true } | { ok: false; error: 'not_found' | 'needs_reauth' | 'sync_failed' }> {
+  const ref = accountsCol(uid).doc(accountEmail);
+  const snap = await ref.get();
+  const enc = snap.data()?.refreshTokenEnc as string | undefined;
+  if (!snap.exists || !enc) return { ok: false, error: 'not_found' };
+
+  const client = oauthClient();
+  try {
+    const refreshToken = decryptField(enc);
+    client.setCredentials({ refresh_token: refreshToken });
+    await client.getAccessToken();
+  } catch (err) {
+    console.warn('resync: refresh token invalid for', accountEmail, err);
+    await ref.set({ needsReauth: true, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+    return { ok: false, error: 'needs_reauth' };
+  }
+
+  try {
+    const cal = google.calendar({ version: 'v3', auth: client });
+    const list = await cal.calendarList.list({ maxResults: 250 });
+    await syncCalendarList(uid, accountEmail, list.data.items ?? []);
+    await ref.set({ needsReauth: false, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+    return { ok: true };
+  } catch (err) {
+    console.warn('resync: calendarList.list failed for', accountEmail, err);
+    return { ok: false, error: 'sync_failed' };
+  }
 }
