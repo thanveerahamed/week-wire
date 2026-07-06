@@ -2,7 +2,12 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
 import { getSession } from '@/lib/session';
 import { getChat, getChatMember, getMe, TelegramApiError } from '@/lib/telegram-api';
-import { linkChannel, loadBotToken, unlinkChannel } from '@/lib/telegram-repo';
+import {
+  linkChannel,
+  loadBotToken,
+  setChannelNotifyEnabled,
+  unlinkChannel,
+} from '@/lib/telegram-repo';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -72,6 +77,21 @@ export async function POST(req: NextRequest): Promise<Response> {
     title: chat.title ?? null,
     username: chat.username ?? null,
   });
+}
+
+const PatchBody = z.object({ enabled: z.boolean() });
+
+export async function PATCH(req: NextRequest): Promise<Response> {
+  const session = await getSession();
+  if (!session) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+
+  const parsed = PatchBody.safeParse(await req.json().catch(() => null));
+  if (!parsed.success) {
+    return NextResponse.json({ error: 'invalid' }, { status: 400 });
+  }
+
+  await setChannelNotifyEnabled(session.uid, parsed.data.enabled);
+  return NextResponse.json({ ok: true });
 }
 
 export async function DELETE(): Promise<Response> {

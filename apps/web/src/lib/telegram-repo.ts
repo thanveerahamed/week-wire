@@ -9,15 +9,18 @@ export interface TelegramStatus {
   configured: boolean;
   botUsername: string | null;
   chatLinked: boolean;
+  chatNotifyEnabled: boolean;
   linkSecret: string | null;
   webhookSetAt: number | null;
   channelLinked: boolean;
   channelTitle: string | null;
   channelUsername: string | null;
+  channelNotifyEnabled: boolean;
   groupLinked: boolean;
   groupTitle: string | null;
   groupTopicId: number | null;
   groupTopicName: string | null;
+  groupNotifyEnabled: boolean;
 }
 
 function configRef(uid: string) {
@@ -52,15 +55,18 @@ export async function getStatus(uid: string): Promise<TelegramStatus> {
       configured: false,
       botUsername: null,
       chatLinked: false,
+      chatNotifyEnabled: true,
       linkSecret: null,
       webhookSetAt: null,
       channelLinked: false,
       channelTitle: null,
       channelUsername: null,
+      channelNotifyEnabled: true,
       groupLinked: false,
       groupTitle: null,
       groupTopicId: null,
       groupTopicName: null,
+      groupNotifyEnabled: true,
     };
   }
   const data = snap.data() ?? {};
@@ -68,15 +74,18 @@ export async function getStatus(uid: string): Promise<TelegramStatus> {
     configured: true,
     botUsername: (data.botUsername as string | undefined) ?? null,
     chatLinked: typeof data.chatId === 'number',
+    chatNotifyEnabled: data.chatNotifyEnabled !== false,
     linkSecret: (data.linkSecret as string | undefined) ?? null,
     webhookSetAt: (data.webhookSetAt as number | undefined) ?? null,
     channelLinked: typeof data.channelChatId === 'number',
     channelTitle: (data.channelTitle as string | undefined) ?? null,
     channelUsername: (data.channelUsername as string | undefined) ?? null,
+    channelNotifyEnabled: data.channelNotifyEnabled !== false,
     groupLinked: typeof data.groupChatId === 'number',
     groupTitle: (data.groupTitle as string | undefined) ?? null,
     groupTopicId: (data.groupTopicId as number | undefined) ?? null,
     groupTopicName: (data.groupTopicName as string | undefined) ?? null,
+    groupNotifyEnabled: data.groupNotifyEnabled !== false,
   };
 }
 
@@ -156,7 +165,8 @@ export async function getLinkedChat(
   const data = snap.data();
   const chatId = data?.chatId as number | undefined;
   const enc = data?.botTokenEnc as string | undefined;
-  if (typeof chatId !== 'number' || !enc) return null;
+  const enabled = data?.chatNotifyEnabled !== false;
+  if (typeof chatId !== 'number' || !enc || !enabled) return null;
   try {
     return { chatId, botToken: decryptField(enc) };
   } catch {
@@ -175,6 +185,13 @@ export async function setLinkedChat(uid: string, chatId: number): Promise<void> 
   );
 }
 
+export async function setChatNotifyEnabled(uid: string, enabled: boolean): Promise<void> {
+  await configRef(uid).set(
+    { chatNotifyEnabled: enabled, updatedAt: FieldValue.serverTimestamp() },
+    { merge: true },
+  );
+}
+
 export async function getLinkedChannel(
   uid: string,
 ): Promise<{ chatId: number; title: string | null; botToken: string } | null> {
@@ -182,12 +199,20 @@ export async function getLinkedChannel(
   const data = snap.data();
   const chatId = data?.channelChatId as number | undefined;
   const enc = data?.botTokenEnc as string | undefined;
-  if (typeof chatId !== 'number' || !enc) return null;
+  const enabled = data?.channelNotifyEnabled !== false;
+  if (typeof chatId !== 'number' || !enc || !enabled) return null;
   try {
     return { chatId, title: (data?.channelTitle as string | undefined) ?? null, botToken: decryptField(enc) };
   } catch {
     return null;
   }
+}
+
+export async function setChannelNotifyEnabled(uid: string, enabled: boolean): Promise<void> {
+  await configRef(uid).set(
+    { channelNotifyEnabled: enabled, updatedAt: FieldValue.serverTimestamp() },
+    { merge: true },
+  );
 }
 
 export async function linkChannel(
@@ -226,7 +251,8 @@ export async function getLinkedGroup(
   const data = snap.data();
   const chatId = data?.groupChatId as number | undefined;
   const enc = data?.botTokenEnc as string | undefined;
-  if (typeof chatId !== 'number' || !enc) return null;
+  const enabled = data?.groupNotifyEnabled !== false;
+  if (typeof chatId !== 'number' || !enc || !enabled) return null;
   try {
     return {
       chatId,
@@ -237,6 +263,13 @@ export async function getLinkedGroup(
   } catch {
     return null;
   }
+}
+
+export async function setGroupNotifyEnabled(uid: string, enabled: boolean): Promise<void> {
+  await configRef(uid).set(
+    { groupNotifyEnabled: enabled, updatedAt: FieldValue.serverTimestamp() },
+    { merge: true },
+  );
 }
 
 export async function linkGroup(

@@ -15,7 +15,16 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Switch } from '@/components/ui/switch';
 import type { TelegramStatus } from '@/lib/telegram-repo';
+
+type NotifyTarget = 'dm' | 'channel' | 'group';
+
+const NOTIFY_ENDPOINT: Record<NotifyTarget, string> = {
+  dm: '/api/telegram',
+  channel: '/api/telegram/channel',
+  group: '/api/telegram/group',
+};
 
 interface Props {
   status: TelegramStatus;
@@ -39,6 +48,28 @@ export function TelegramSetup({ status }: Props) {
   const [groupError, setGroupError] = useState<string | null>(null);
   const [linkingGroup, startLinkingGroup] = useTransition();
   const [unlinkingGroup, startUnlinkingGroup] = useTransition();
+
+  const [notifyPending, setNotifyPending] = useState<NotifyTarget | null>(null);
+  const [notifyError, setNotifyError] = useState<string | null>(null);
+
+  async function toggleNotify(target: NotifyTarget, enabled: boolean) {
+    setNotifyPending(target);
+    setNotifyError(null);
+    try {
+      const res = await fetch(NOTIFY_ENDPOINT[target], {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ enabled }),
+      });
+      if (!res.ok) {
+        setNotifyError('Could not update notification setting.');
+        return;
+      }
+      router.refresh();
+    } finally {
+      setNotifyPending(null);
+    }
+  }
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -173,16 +204,32 @@ export function TelegramSetup({ status }: Props) {
                   )}
                 </p>
               </div>
-              <Button
-                variant={confirmRemove ? 'destructive' : 'ghost'}
-                size="sm"
-                onClick={disconnect}
-                disabled={removing}
-              >
-                <Trash2 className="size-4" aria-hidden />
-                {confirmRemove ? 'Confirm remove' : 'Disconnect'}
-              </Button>
+              <div className="flex shrink-0 items-center gap-3">
+                {status.chatLinked ? (
+                  <Switch
+                    checked={status.chatNotifyEnabled}
+                    disabled={notifyPending === 'dm'}
+                    onCheckedChange={(next) => void toggleNotify('dm', next)}
+                    aria-label="Notify me in chat"
+                  />
+                ) : null}
+                <Button
+                  variant={confirmRemove ? 'destructive' : 'ghost'}
+                  size="sm"
+                  onClick={disconnect}
+                  disabled={removing}
+                >
+                  <Trash2 className="size-4" aria-hidden />
+                  {confirmRemove ? 'Confirm remove' : 'Disconnect'}
+                </Button>
+              </div>
             </div>
+
+            {notifyError ? (
+              <p role="alert" className="mt-2 text-sm text-[var(--color-destructive)]">
+                {notifyError}
+              </p>
+            ) : null}
 
             {!status.chatLinked && startUrl ? (
               <div className="mt-4 flex flex-col gap-2">
@@ -222,15 +269,23 @@ export function TelegramSetup({ status }: Props) {
                     Posting digests to{' '}
                     {status.channelUsername ? `@${status.channelUsername}` : status.channelTitle}
                   </p>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={unlinkChannel}
-                    disabled={unlinkingChannel}
-                  >
-                    <Trash2 className="size-4" aria-hidden />
-                    Unlink
-                  </Button>
+                  <div className="flex shrink-0 items-center gap-3">
+                    <Switch
+                      checked={status.channelNotifyEnabled}
+                      disabled={notifyPending === 'channel'}
+                      onCheckedChange={(next) => void toggleNotify('channel', next)}
+                      aria-label="Notify the channel"
+                    />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={unlinkChannel}
+                      disabled={unlinkingChannel}
+                    >
+                      <Trash2 className="size-4" aria-hidden />
+                      Unlink
+                    </Button>
+                  </div>
                 </div>
               ) : (
                 <form onSubmit={linkChannelSubmit} className="flex flex-col gap-2">
@@ -273,10 +328,23 @@ export function TelegramSetup({ status }: Props) {
                     Posting digests to {status.groupTitle ?? 'the linked group'}
                     {status.groupTopicId != null ? ` (topic #${status.groupTopicId})` : ''}
                   </p>
-                  <Button variant="ghost" size="sm" onClick={unlinkGroup} disabled={unlinkingGroup}>
-                    <Trash2 className="size-4" aria-hidden />
-                    Unlink
-                  </Button>
+                  <div className="flex shrink-0 items-center gap-3">
+                    <Switch
+                      checked={status.groupNotifyEnabled}
+                      disabled={notifyPending === 'group'}
+                      onCheckedChange={(next) => void toggleNotify('group', next)}
+                      aria-label="Notify the group topic"
+                    />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={unlinkGroup}
+                      disabled={unlinkingGroup}
+                    >
+                      <Trash2 className="size-4" aria-hidden />
+                      Unlink
+                    </Button>
+                  </div>
                 </div>
               ) : (
                 <form onSubmit={linkGroupSubmit} className="flex flex-col gap-2">

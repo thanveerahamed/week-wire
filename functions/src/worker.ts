@@ -62,9 +62,12 @@ async function loadPrefs(uid: string): Promise<UserPrefs | null> {
 interface TelegramConfig {
   botTokenEnc: string;
   chatId: number | null;
+  chatNotifyEnabled: boolean;
   channelChatId: number | null;
+  channelNotifyEnabled: boolean;
   groupChatId: number | null;
   groupTopicId: number | null;
+  groupNotifyEnabled: boolean;
 }
 
 async function loadTelegram(uid: string): Promise<TelegramConfig | null> {
@@ -77,7 +80,16 @@ async function loadTelegram(uid: string): Promise<TelegramConfig | null> {
   const channelChatId = typeof data.channelChatId === 'number' ? data.channelChatId : null;
   const groupChatId = typeof data.groupChatId === 'number' ? data.groupChatId : null;
   const groupTopicId = typeof data.groupTopicId === 'number' ? data.groupTopicId : null;
-  return { botTokenEnc, chatId, channelChatId, groupChatId, groupTopicId };
+  return {
+    botTokenEnc,
+    chatId,
+    chatNotifyEnabled: data.chatNotifyEnabled !== false,
+    channelChatId,
+    channelNotifyEnabled: data.channelNotifyEnabled !== false,
+    groupChatId,
+    groupTopicId,
+    groupNotifyEnabled: data.groupNotifyEnabled !== false,
+  };
 }
 
 function runRef(uid: string, runId: string) {
@@ -161,11 +173,13 @@ export const sendUserDigest = onMessagePublished(
         chatId: number;
         threadId?: number;
       }> = [
-        ...(tg.chatId != null ? [{ type: 'dm' as const, chatId: tg.chatId }] : []),
-        ...(tg.channelChatId != null
+        ...(tg.chatId != null && tg.chatNotifyEnabled
+          ? [{ type: 'dm' as const, chatId: tg.chatId }]
+          : []),
+        ...(tg.channelChatId != null && tg.channelNotifyEnabled
           ? [{ type: 'channel' as const, chatId: tg.channelChatId }]
           : []),
-        ...(tg.groupChatId != null
+        ...(tg.groupChatId != null && tg.groupNotifyEnabled
           ? [
               {
                 type: 'group' as const,
