@@ -63,6 +63,8 @@ interface TelegramConfig {
   botTokenEnc: string;
   chatId: number | null;
   channelChatId: number | null;
+  groupChatId: number | null;
+  groupTopicId: number | null;
 }
 
 async function loadTelegram(uid: string): Promise<TelegramConfig | null> {
@@ -73,7 +75,9 @@ async function loadTelegram(uid: string): Promise<TelegramConfig | null> {
   if (!botTokenEnc) return null;
   const chatId = typeof data.chatId === 'number' ? data.chatId : null;
   const channelChatId = typeof data.channelChatId === 'number' ? data.channelChatId : null;
-  return { botTokenEnc, chatId, channelChatId };
+  const groupChatId = typeof data.groupChatId === 'number' ? data.groupChatId : null;
+  const groupTopicId = typeof data.groupTopicId === 'number' ? data.groupTopicId : null;
+  return { botTokenEnc, chatId, channelChatId, groupChatId, groupTopicId };
 }
 
 function runRef(uid: string, runId: string) {
@@ -152,10 +156,23 @@ export const sendUserDigest = onMessagePublished(
         await markRun(uid, runId, { status: 'skipped', reason: 'no-telegram' });
         return;
       }
-      const destinations: Array<{ type: 'dm' | 'channel'; chatId: number }> = [
+      const destinations: Array<{
+        type: 'dm' | 'channel' | 'group';
+        chatId: number;
+        threadId?: number;
+      }> = [
         ...(tg.chatId != null ? [{ type: 'dm' as const, chatId: tg.chatId }] : []),
         ...(tg.channelChatId != null
           ? [{ type: 'channel' as const, chatId: tg.channelChatId }]
+          : []),
+        ...(tg.groupChatId != null
+          ? [
+              {
+                type: 'group' as const,
+                chatId: tg.groupChatId,
+                threadId: tg.groupTopicId ?? undefined,
+              },
+            ]
           : []),
       ];
       if (destinations.length === 0) {
@@ -192,6 +209,7 @@ export const sendUserDigest = onMessagePublished(
               chat_id: dest.chatId,
               text: markdown,
               parse_mode: 'MarkdownV2',
+              message_thread_id: dest.threadId,
             });
             return { ...dest, ok: true as const };
           } catch (err) {
@@ -230,6 +248,26 @@ export const sendUserDigest = onMessagePublished(
                   at: FieldValue.serverTimestamp(),
                 },
                 chatLinked: false,
+              },
+              { merge: true },
+            );
+        } else if (f.type === 'group') {
+          await db
+            .collection('users')
+            .doc(uid)
+            .collection('telegram')
+            .doc('config')
+            .set(
+              {
+                groupChatId: FieldValue.delete(),
+                groupTitle: FieldValue.delete(),
+                groupTopicId: FieldValue.delete(),
+                groupTopicName: FieldValue.delete(),
+                lastGroupError: {
+                  code: f.err.errorCode,
+                  message: f.err.message,
+                  at: FieldValue.serverTimestamp(),
+                },
               },
               { merge: true },
             );

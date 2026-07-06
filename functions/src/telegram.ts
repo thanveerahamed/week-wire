@@ -27,7 +27,12 @@ function isRetryable(status: number, code: number | undefined): boolean {
 
 export async function sendMessage(
   botToken: string,
-  args: { chat_id: number; text: string; parse_mode: 'MarkdownV2' | 'HTML' },
+  args: {
+    chat_id: number;
+    text: string;
+    parse_mode: 'MarkdownV2' | 'HTML';
+    message_thread_id?: number;
+  },
 ): Promise<void> {
   const res = await fetch(`${API}/bot${botToken}/sendMessage`, {
     method: 'POST',
@@ -36,6 +41,7 @@ export async function sendMessage(
       chat_id: args.chat_id,
       text: args.text,
       parse_mode: args.parse_mode,
+      message_thread_id: args.message_thread_id,
       disable_web_page_preview: true,
     }),
     signal: AbortSignal.timeout(15_000),

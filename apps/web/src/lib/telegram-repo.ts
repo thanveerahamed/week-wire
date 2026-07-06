@@ -14,6 +14,10 @@ export interface TelegramStatus {
   channelLinked: boolean;
   channelTitle: string | null;
   channelUsername: string | null;
+  groupLinked: boolean;
+  groupTitle: string | null;
+  groupTopicId: number | null;
+  groupTopicName: string | null;
 }
 
 function configRef(uid: string) {
@@ -53,6 +57,10 @@ export async function getStatus(uid: string): Promise<TelegramStatus> {
       channelLinked: false,
       channelTitle: null,
       channelUsername: null,
+      groupLinked: false,
+      groupTitle: null,
+      groupTopicId: null,
+      groupTopicName: null,
     };
   }
   const data = snap.data() ?? {};
@@ -65,6 +73,10 @@ export async function getStatus(uid: string): Promise<TelegramStatus> {
     channelLinked: typeof data.channelChatId === 'number',
     channelTitle: (data.channelTitle as string | undefined) ?? null,
     channelUsername: (data.channelUsername as string | undefined) ?? null,
+    groupLinked: typeof data.groupChatId === 'number',
+    groupTitle: (data.groupTitle as string | undefined) ?? null,
+    groupTopicId: (data.groupTopicId as number | undefined) ?? null,
+    groupTopicName: (data.groupTopicName as string | undefined) ?? null,
   };
 }
 
@@ -201,6 +213,57 @@ export async function unlinkChannel(uid: string): Promise<void> {
       channelTitle: FieldValue.delete(),
       channelUsername: FieldValue.delete(),
       channelLinkedAt: FieldValue.delete(),
+      updatedAt: FieldValue.serverTimestamp(),
+    },
+    { merge: true },
+  );
+}
+
+export async function getLinkedGroup(
+  uid: string,
+): Promise<{ chatId: number; topicId: number | null; title: string | null; botToken: string } | null> {
+  const snap = await configRef(uid).get();
+  const data = snap.data();
+  const chatId = data?.groupChatId as number | undefined;
+  const enc = data?.botTokenEnc as string | undefined;
+  if (typeof chatId !== 'number' || !enc) return null;
+  try {
+    return {
+      chatId,
+      topicId: (data?.groupTopicId as number | undefined) ?? null,
+      title: (data?.groupTitle as string | undefined) ?? null,
+      botToken: decryptField(enc),
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function linkGroup(
+  uid: string,
+  args: { chatId: number; title: string | null; topicId: number | null; topicName: string | null },
+): Promise<void> {
+  await configRef(uid).set(
+    {
+      groupChatId: args.chatId,
+      groupTitle: args.title,
+      groupTopicId: args.topicId,
+      groupTopicName: args.topicName,
+      groupLinkedAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+    },
+    { merge: true },
+  );
+}
+
+export async function unlinkGroup(uid: string): Promise<void> {
+  await configRef(uid).set(
+    {
+      groupChatId: FieldValue.delete(),
+      groupTitle: FieldValue.delete(),
+      groupTopicId: FieldValue.delete(),
+      groupTopicName: FieldValue.delete(),
+      groupLinkedAt: FieldValue.delete(),
       updatedAt: FieldValue.serverTimestamp(),
     },
     { merge: true },

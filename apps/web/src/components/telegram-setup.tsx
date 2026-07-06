@@ -3,7 +3,16 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CheckCircle2, AlertCircle, ExternalLink, Trash2, Send, Copy, Radio } from 'lucide-react';
+import {
+  CheckCircle2,
+  AlertCircle,
+  ExternalLink,
+  Trash2,
+  Send,
+  Copy,
+  Radio,
+  Users,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import type { TelegramStatus } from '@/lib/telegram-repo';
@@ -24,6 +33,12 @@ export function TelegramSetup({ status }: Props) {
   const [channelError, setChannelError] = useState<string | null>(null);
   const [linkingChannel, startLinkingChannel] = useTransition();
   const [unlinkingChannel, startUnlinkingChannel] = useTransition();
+
+  const [groupId, setGroupId] = useState('');
+  const [topicId, setTopicId] = useState('');
+  const [groupError, setGroupError] = useState<string | null>(null);
+  const [linkingGroup, startLinkingGroup] = useTransition();
+  const [unlinkingGroup, startUnlinkingGroup] = useTransition();
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -84,6 +99,36 @@ export function TelegramSetup({ status }: Props) {
   function unlinkChannel() {
     startUnlinkingChannel(async () => {
       await fetch('/api/telegram/channel', { method: 'DELETE' });
+      router.refresh();
+    });
+  }
+
+  function linkGroupSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setGroupError(null);
+    startLinkingGroup(async () => {
+      const res = await fetch('/api/telegram/group', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ groupId: groupId.trim(), topicId: topicId.trim() }),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        description?: string;
+      };
+      if (!res.ok) {
+        setGroupError(data.description ?? humanGroupError(data.error));
+        return;
+      }
+      setGroupId('');
+      setTopicId('');
+      router.refresh();
+    });
+  }
+
+  function unlinkGroup() {
+    startUnlinkingGroup(async () => {
+      await fetch('/api/telegram/group', { method: 'DELETE' });
       router.refresh();
     });
   }
@@ -213,6 +258,61 @@ export function TelegramSetup({ status }: Props) {
                 </form>
               )}
             </div>
+
+            <hr className="mt-4 border-t" />
+
+            <div className="mt-4 flex flex-col gap-2">
+              <p className="flex items-center gap-2 text-sm font-medium">
+                <Users className="size-4 text-[var(--color-primary)]" aria-hidden />
+                Group topic
+              </p>
+              {status.groupLinked ? (
+                <div className="flex items-center justify-between gap-3">
+                  <p className="flex items-center gap-1.5 text-xs text-[var(--color-muted-foreground)]">
+                    <CheckCircle2 className="size-3.5 text-[var(--color-primary)]" aria-hidden />
+                    Posting digests to {status.groupTitle ?? 'the linked group'}
+                    {status.groupTopicId != null ? ` (topic #${status.groupTopicId})` : ''}
+                  </p>
+                  <Button variant="ghost" size="sm" onClick={unlinkGroup} disabled={unlinkingGroup}>
+                    <Trash2 className="size-4" aria-hidden />
+                    Unlink
+                  </Button>
+                </div>
+              ) : (
+                <form onSubmit={linkGroupSubmit} className="flex flex-col gap-2">
+                  <p className="text-xs text-[var(--color-muted-foreground)]">
+                    Add @{status.botUsername} to a supergroup with Topics enabled, paste its numeric
+                    id (e.g. -1001234567890) and the topic&apos;s thread id. Leave the topic id
+                    empty to post to the group&apos;s General topic.
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      placeholder="-1001234567890"
+                      value={groupId}
+                      onChange={(e) => setGroupId(e.target.value)}
+                      spellCheck={false}
+                      autoComplete="off"
+                    />
+                    <Input
+                      placeholder="Topic id (optional)"
+                      value={topicId}
+                      onChange={(e) => setTopicId(e.target.value)}
+                      spellCheck={false}
+                      autoComplete="off"
+                      className="max-w-40"
+                    />
+                    <Button type="submit" size="sm" disabled={linkingGroup || !groupId.trim()}>
+                      {linkingGroup ? 'Linking…' : 'Link'}
+                    </Button>
+                  </div>
+                  {groupError ? (
+                    <span role="alert" className="text-sm text-[var(--color-destructive)]">
+                      {groupError}
+                    </span>
+                  ) : null}
+                </form>
+              )}
+            </div>
           </motion.div>
         ) : (
           <motion.form
@@ -291,6 +391,25 @@ function humanChannelError(code?: string): string {
       return 'That id is not a channel.';
     case 'bot_not_admin':
       return 'Add the bot as an admin of the channel first.';
+    case 'unauthorized':
+      return 'Please sign in again.';
+    default:
+      return code ?? 'Something went wrong.';
+  }
+}
+
+function humanGroupError(code?: string): string {
+  switch (code) {
+    case 'bot_not_configured':
+      return 'Connect a bot above first.';
+    case 'group_not_found':
+      return 'Telegram could not find that group.';
+    case 'not_a_supergroup':
+      return 'That id is not a supergroup. Upgrade it and enable Topics first.';
+    case 'topics_not_enabled':
+      return 'Topics are not enabled for that group.';
+    case 'bot_not_member':
+      return 'Add the bot to the group first.';
     case 'unauthorized':
       return 'Please sign in again.';
     default:

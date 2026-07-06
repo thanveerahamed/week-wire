@@ -67,6 +67,7 @@ export interface TgChat {
   type: string;
   title?: string;
   username?: string;
+  is_forum?: boolean;
 }
 
 export function getChat(botToken: string, chatId: string): Promise<TgChat> {
@@ -104,12 +105,18 @@ export function deleteWebhook(botToken: string): Promise<true> {
 
 export function sendMessage(
   botToken: string,
-  args: { chat_id: number; text: string; parse_mode?: 'MarkdownV2' | 'HTML' },
+  args: {
+    chat_id: number;
+    text: string;
+    parse_mode?: 'MarkdownV2' | 'HTML';
+    message_thread_id?: number;
+  },
 ): Promise<unknown> {
   return call<unknown>(botToken, 'sendMessage', {
     chat_id: args.chat_id,
     text: args.text,
     parse_mode: args.parse_mode,
+    message_thread_id: args.message_thread_id,
     disable_web_page_preview: true,
   });
 }
