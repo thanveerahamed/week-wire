@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { Home, CalendarDays, Send, Settings } from 'lucide-react';
+import { Home, CalendarDays, CalendarClock, Send, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface NavItem {
@@ -16,6 +16,7 @@ interface NavItem {
 const items: readonly NavItem[] = [
   { href: '/app', label: 'Home', icon: Home, exact: true },
   { href: '/app/calendars', label: 'Calendars', icon: CalendarDays },
+  { href: '/app/events', label: 'Events', icon: CalendarClock },
   { href: '/app/telegram', label: 'Telegram', icon: Send },
   { href: '/app/settings', label: 'Settings', icon: Settings },
 ];
@@ -28,7 +29,7 @@ export function AppNav() {
       aria-label="Primary"
       className="bg-[var(--color-background)]/90 fixed inset-x-0 bottom-0 z-30 border-t backdrop-blur sm:hidden"
     >
-      <ul className="mx-auto grid max-w-3xl grid-cols-4">
+      <ul className="mx-auto grid max-w-3xl grid-cols-5">
         {items.map((item) => {
           const Icon = item.icon;
           const active = item.exact ? pathname === item.href : pathname.startsWith(item.href);

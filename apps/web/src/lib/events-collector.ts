@@ -1,8 +1,67 @@
 import 'server-only';
 import { google } from 'googleapis';
-import { decryptField, type DigestEvent } from '@week-wire/shared';
+import {
+  decryptField,
+  expandCustomEventOccurrences,
+  type CustomEventRecurrence,
+  type DigestEvent,
+} from '@week-wire/shared';
 import { adminDb } from './firebase-admin';
 import { oauthClient } from './google-oauth';
+
+/**
+ * User-created custom events (`users/{uid}/customEvents/{eventId}`), merged
+ * into the same digest sent by the existing twice-daily cron — no separate
+ * trigger is added for these. Mirrors functions/src/collector.ts so the web
+ * preview matches what actually gets sent.
+ */
+async function collectCustomEvents(args: {
+  uid: string;
+  lookaheadDays: number;
+  now: Date;
+}): Promise<DigestEvent[]> {
+  const { uid, lookaheadDays, now } = args;
+  const snap = await adminDb().collection('users').doc(uid).collection('customEvents').get();
+  if (snap.empty) return [];
+
+  const from = now.getTime();
+  const to = from + lookaheadDays * 24 * 60 * 60 * 1000;
+  const out: DigestEvent[] = [];
+
+  for (const doc of snap.docs) {
+    const data = doc.data();
+    if (data.enabled === false) continue;
+    const startAt = typeof data.startAt === 'number' ? data.startAt : null;
+    if (startAt == null) continue;
+    const durationMinutes =
+      typeof data.durationMinutes === 'number' ? data.durationMinutes : 60;
+    const recurrence: CustomEventRecurrence =
+      data.recurrence === 'daily' || data.recurrence === 'weekly' || data.recurrence === 'monthly'
+        ? data.recurrence
+        : 'none';
+    const recurrenceEndAt =
+      typeof data.recurrenceEndAt === 'number' ? data.recurrenceEndAt : null;
+
+    const occurrences = expandCustomEventOccurrences(
+      { startAt, durationMinutes, recurrence, recurrenceEndAt },
+      { from, to },
+    );
+    for (const occ of occurrences) {
+      out.push({
+        id: `${doc.id}_${occ.start}`,
+        calendarId: 'custom',
+        accountEmail: 'custom',
+        title: typeof data.title === 'string' ? data.title : '(untitled)',
+        location: typeof data.location === 'string' ? data.location : null,
+        start: new Date(occ.start).toISOString(),
+        end: new Date(occ.end).toISOString(),
+        allDay: false,
+      });
+    }
+  }
+
+  return out;
+}
 
 /**
  * Fetch upcoming events across all of a user's connected calendar accounts,
@@ -85,6 +144,9 @@ export async function collectUpcomingEvents(args: {
       }
     }
   }
+
+  const customEvents = await collectCustomEvents({ uid, lookaheadDays, now });
+  all.push(...customEvents);
 
   all.sort((a, b) => a.start.localeCompare(b.start));
   return all;

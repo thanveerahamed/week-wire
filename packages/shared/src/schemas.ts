@@ -74,6 +74,48 @@ export const TelegramBotTokenSchema = z
   .string()
   .regex(/^\d{6,12}:[A-Za-z0-9_-]{30,}$/u, 'Not a valid Telegram bot token shape');
 
+export const CustomEventRecurrenceSchema = z.enum(['none', 'daily', 'weekly', 'monthly']);
+
+/** Stored on `users/{uid}/customEvents/{eventId}`. */
+export const CustomEventSchema = z.object({
+  title: z.string().min(1).max(200),
+  location: z.string().max(200).nullable(),
+  startAt: z.number().int(),
+  durationMinutes: z
+    .number()
+    .int()
+    .min(0)
+    .max(24 * 60),
+  recurrence: CustomEventRecurrenceSchema,
+  recurrenceEndAt: z.number().int().nullable(),
+  enabled: z.boolean(),
+});
+
+export type CustomEvent = z.infer<typeof CustomEventSchema>;
+
+/** Create payload — server fills in defaults for omitted optional fields. */
+export const CustomEventCreateSchema = z.object({
+  title: z.string().min(1).max(200),
+  location: z.string().max(200).nullable().optional(),
+  startAt: z.number().int(),
+  durationMinutes: z
+    .number()
+    .int()
+    .min(0)
+    .max(24 * 60)
+    .optional(),
+  recurrence: CustomEventRecurrenceSchema,
+  recurrenceEndAt: z.number().int().nullable().optional(),
+  enabled: z.boolean().optional(),
+});
+
+export type CustomEventCreate = z.infer<typeof CustomEventCreateSchema>;
+
+/** Update payload — only mutable fields, all optional. */
+export const CustomEventUpdateSchema = CustomEventSchema.partial();
+
+export type CustomEventUpdate = z.infer<typeof CustomEventUpdateSchema>;
+
 /** A Google calendar event projected for digest rendering. */
 export const DigestEventSchema = z.object({
   id: z.string(),

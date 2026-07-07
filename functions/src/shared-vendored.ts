@@ -161,3 +161,76 @@ export function formatDigest(
   });
   return `${header}\n\n${sections.join('\n\n')}`;
 }
+
+/**
+ * Occurrence expansion for user-created custom events. Fixed-ms stepping for
+ * 'daily'/'weekly' (no per-day local wall-clock recomputation), so across a
+ * DST transition the local time-of-day can drift by an hour — an accepted
+ * simplification for a lightweight reminder feature.
+ */
+export type CustomEventRecurrence = 'none' | 'daily' | 'weekly' | 'monthly';
+
+export interface CustomEventOccurrenceInput {
+  startAt: number;
+  durationMinutes: number;
+  recurrence: CustomEventRecurrence;
+  recurrenceEndAt: number | null;
+}
+
+export interface Occurrence {
+  start: number;
+  end: number;
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function addMonthsUtc(ms: number, months: number): number {
+  const d = new Date(ms);
+  const day = d.getUTCDate();
+  const next = new Date(
+    Date.UTC(
+      d.getUTCFullYear(),
+      d.getUTCMonth() + months,
+      day,
+      d.getUTCHours(),
+      d.getUTCMinutes(),
+      d.getUTCSeconds(),
+      d.getUTCMilliseconds(),
+    ),
+  );
+  if (next.getUTCDate() !== day) next.setUTCDate(0);
+  return next.getTime();
+}
+
+function stepOccurrence(startAt: number, recurrence: CustomEventRecurrence, index: number): number {
+  if (recurrence === 'daily') return startAt + index * DAY_MS;
+  if (recurrence === 'weekly') return startAt + index * 7 * DAY_MS;
+  return addMonthsUtc(startAt, index);
+}
+
+export function expandCustomEventOccurrences(
+  event: CustomEventOccurrenceInput,
+  window: { from: number; to: number },
+  maxIterations = 3660,
+): Occurrence[] {
+  const { startAt, durationMinutes, recurrence, recurrenceEndAt } = event;
+  const { from, to } = window;
+  const durationMs = Math.max(0, durationMinutes) * 60_000;
+  const hardEnd = recurrenceEndAt != null ? Math.min(to, recurrenceEndAt) : to;
+  if (hardEnd < from) return [];
+
+  if (recurrence === 'none') {
+    if (startAt < from || startAt > to) return [];
+    return [{ start: startAt, end: startAt + durationMs }];
+  }
+
+  const out: Occurrence[] = [];
+  let index = 0;
+  let occurrence = startAt;
+  while (occurrence <= hardEnd && index < maxIterations) {
+    if (occurrence >= from) out.push({ start: occurrence, end: occurrence + durationMs });
+    index++;
+    occurrence = stepOccurrence(startAt, recurrence, index);
+  }
+  return out;
+}

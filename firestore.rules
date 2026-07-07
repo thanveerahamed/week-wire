@@ -41,6 +41,21 @@ service cloud.firestore {
         // Encrypted bot token + chatId — server only.
         allow read, write: if false;
       }
+
+      // User-created custom events (one-time or recurring), merged into the
+      // same digest the cron already sends.
+      match /customEvents/{eventId} {
+        allow read: if isOwner(uid);
+        allow create: if isOwner(uid)
+          && request.resource.data.keys().hasOnly(
+            ['title','location','startAt','durationMinutes','recurrence','recurrenceEndAt','enabled','createdAt','updatedAt']
+          );
+        allow update: if isOwner(uid)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(
+            ['title','location','startAt','durationMinutes','recurrence','recurrenceEndAt','enabled','updatedAt']
+          );
+        allow delete: if isOwner(uid);
+      }
     }
 
     // Idempotency / run tracking — server only.

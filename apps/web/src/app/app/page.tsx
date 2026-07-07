@@ -1,6 +1,6 @@
 import { getSession } from '@/lib/session';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { CalendarPlus, Send, Settings2 } from 'lucide-react';
+import { CalendarPlus, CalendarClock, Send, Settings2 } from 'lucide-react';
 import Link from 'next/link';
 
 export default async function AppHomePage() {
@@ -33,6 +33,16 @@ export default async function AppHomePage() {
               <Send className="size-5 text-[var(--color-primary)]" aria-hidden />
               <CardTitle>Set up your Telegram bot</CardTitle>
               <CardDescription>Paste a bot token and link your chat.</CardDescription>
+            </CardHeader>
+          </Card>
+        </Link>
+
+        <Link href="/app/events" className="group">
+          <Card className="h-full transition-transform group-hover:-translate-y-0.5 group-hover:shadow-md">
+            <CardHeader>
+              <CalendarClock className="size-5 text-[var(--color-primary)]" aria-hidden />
+              <CardTitle>Add one-off or recurring events</CardTitle>
+              <CardDescription>They ride along in the same digest — no new alert.</CardDescription>
             </CardHeader>
           </Card>
         </Link>
