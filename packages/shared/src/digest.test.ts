@@ -42,7 +42,7 @@ describe('formatDigest', () => {
         allDay: false,
       },
     ];
-    const out = formatDigest(events, { timezone: TZ });
+    const out = formatDigest(events, { timezone: TZ, now: new Date('2026-06-03T00:00:00.000Z') });
     // Both day headings (Wed 3 Jun & Thu 4 Jun) should appear.
     expect(out).toMatch(/Wed.*3 Jun/);
     expect(out).toMatch(/Thu.*4 Jun/);
@@ -64,9 +64,36 @@ describe('formatDigest', () => {
         allDay: true,
       },
     ];
-    const out = formatDigest(events, { timezone: TZ });
+    const out = formatDigest(events, {
+      timezone: TZ,
+      now: new Date('2026-06-05T00:00:00.000Z'),
+    });
     expect(out).toContain('all day');
     expect(out).toContain('Holiday');
+  });
+
+  it('shows multi-day events once with an "until" suffix instead of repeating them', () => {
+    const events: DigestEvent[] = [
+      {
+        id: '1',
+        calendarId: 'c1',
+        accountEmail: 'a@example.com',
+        title: 'Summer camp',
+        location: null,
+        // All-day, spans 6 Jul through 31 Aug (end is exclusive per RFC5545).
+        start: '2026-07-06',
+        end: '2026-09-01',
+        allDay: true,
+      },
+    ];
+    const out = formatDigest(events, {
+      timezone: TZ,
+      now: new Date('2026-07-06T00:00:00.000Z'),
+      lookaheadDays: 7,
+    });
+    // Only one occurrence — not repeated across the window.
+    expect(out.match(/Summer camp/gu)).toHaveLength(1);
+    expect(out).toContain('until 13 Jul'); // clipped to the 7-day lookahead window
   });
 
   it('escapes MarkdownV2 specials in titles and locations', () => {

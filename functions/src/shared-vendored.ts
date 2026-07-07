@@ -59,12 +59,30 @@ function localDateKey(iso: string, timezone: string): string {
   }).format(new Date(iso));
 }
 
+/** Shift a YYYY-MM-DD key by `days` (may be negative), in plain calendar-day arithmetic. */
+function addDaysToKey(key: string, days: number): string {
+  const [y, m, d] = key.split('-').map(Number) as [number, number, number];
+  const shifted = new Date(Date.UTC(y, m - 1, d + days));
+  return shifted.toISOString().slice(0, 10);
+}
+
 function formatDayHeading(dateKey: string, timezone: string): string {
   const [y, m, d] = dateKey.split('-').map(Number) as [number, number, number];
   const anchor = new Date(Date.UTC(y, m - 1, d, 12));
   return new Intl.DateTimeFormat('en-GB', {
     timeZone: timezone,
     weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+  }).format(anchor);
+}
+
+/** Short date label without weekday, e.g. "31 Aug" — used for "until …" suffixes. */
+function formatShortDate(dateKey: string, timezone: string): string {
+  const [y, m, d] = dateKey.split('-').map(Number) as [number, number, number];
+  const anchor = new Date(Date.UTC(y, m - 1, d, 12));
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone: timezone,
     day: 'numeric',
     month: 'short',
   }).format(anchor);
@@ -93,20 +111,42 @@ function formatTimeRange(ev: DigestEvent, timezone: string): string {
 
 export function formatDigest(
   events: DigestEvent[],
-  opts: { timezone: string; title?: string },
+  opts: { timezone: string; title?: string; now?: Date; lookaheadDays?: number },
 ): string {
-  const { timezone, title = 'WeekWire digest' } = opts;
+  const { timezone, title = 'WeekWire digest', now = new Date(), lookaheadDays = 14 } = opts;
   const header = `*${escapeMdV2(title)}*`;
   if (events.length === 0) {
     return `${header}\n\n${escapeMdV2('No events in the lookahead window. Enjoy the quiet.')}`;
   }
+
+  const windowStartKey = localDateKey(now.toISOString(), timezone);
+  const windowEndKey = addDaysToKey(windowStartKey, lookaheadDays);
+
+  // Multi-day events (e.g. subscribed webcal calendars) get a single entry —
+  // placed on today if already in progress, otherwise on their start day —
+  // annotated with an end date instead of being repeated on every day.
   const groups = new Map<string, DigestEvent[]>();
+  const untilLabel = new Map<DigestEvent, string>();
   for (const ev of events) {
-    const key = ev.allDay ? ev.start.slice(0, 10) : localDateKey(ev.start, timezone);
-    const arr = groups.get(key) ?? [];
+    const startKey = ev.allDay ? ev.start.slice(0, 10) : localDateKey(ev.start, timezone);
+    // All-day end dates are exclusive per RFC5545 (day after the last day).
+    const endKey = ev.allDay
+      ? addDaysToKey(ev.end.slice(0, 10), -1)
+      : localDateKey(ev.end, timezone);
+
+    const placementKey = startKey > windowStartKey ? startKey : windowStartKey;
+    if (placementKey > windowEndKey) continue; // fully outside the window
+
+    if (endKey > startKey) {
+      const clippedEndKey = endKey < windowEndKey ? endKey : windowEndKey;
+      untilLabel.set(ev, formatShortDate(clippedEndKey, timezone));
+    }
+
+    const arr = groups.get(placementKey) ?? [];
     arr.push(ev);
-    groups.set(key, arr);
+    groups.set(placementKey, arr);
   }
+
   const sortedKeys = [...groups.keys()].sort();
   const sections = sortedKeys.map((key) => {
     const dayItems = (groups.get(key) ?? []).slice().sort((a, b) => a.start.localeCompare(b.start));
@@ -114,7 +154,8 @@ export function formatDigest(
       const time = escapeMdV2(formatTimeRange(ev, timezone));
       const titleEsc = escapeMdV2(ev.title || '(untitled)');
       const loc = ev.location ? ` · ${escapeMdV2(ev.location)}` : '';
-      return `• \`${time}\` ${titleEsc}${loc}`;
+      const until = untilLabel.has(ev) ? ` ${escapeMdV2(`(until ${untilLabel.get(ev)})`)}` : '';
+      return `• \`${time}\` ${titleEsc}${loc}${until}`;
     });
     return `*${escapeMdV2(formatDayHeading(key, timezone))}*\n${lines.join('\n')}`;
   });

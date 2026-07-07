@@ -195,16 +195,20 @@ export const sendUserDigest = onMessagePublished(
         return;
       }
 
+      const now = new Date();
       const events = await collectUpcomingEvents({
         uid,
         lookaheadDays: prefs.lookaheadDays,
         timezone: prefs.timezone,
+        now,
       });
       const titleSuffix = slot === '07' ? 'morning' : 'evening';
-      const dateLabel = formatDigestDateLabel(new Date(), prefs.timezone);
+      const dateLabel = formatDigestDateLabel(now, prefs.timezone);
       const markdown = formatDigest(events, {
         timezone: prefs.timezone,
         title: `WeekWire ${titleSuffix} – ${dateLabel}`,
+        now,
+        lookaheadDays: prefs.lookaheadDays,
       });
 
       let botToken: string;

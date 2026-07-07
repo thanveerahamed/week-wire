@@ -20,6 +20,11 @@ interface FormatOptions {
   title?: string;
   /** Optional "now" override for deterministic tests. */
   now?: Date;
+  /**
+   * Size of the lookahead window in days, used to cap how far multi-day
+   * events are repeated across days. Defaults to 14 (the max user setting).
+   */
+  lookaheadDays?: number;
 }
 
 /** Group events by ISO local date (YYYY-MM-DD) in the given timezone. */
@@ -34,6 +39,13 @@ function localDateKey(iso: string, timezone: string): string {
   }).format(d);
 }
 
+/** Shift a YYYY-MM-DD key by `days` (may be negative), in plain calendar-day arithmetic. */
+function addDaysToKey(key: string, days: number): string {
+  const [y, m, d] = key.split('-').map(Number) as [number, number, number];
+  const shifted = new Date(Date.UTC(y, m - 1, d + days));
+  return shifted.toISOString().slice(0, 10);
+}
+
 function formatDayHeading(dateKey: string, timezone: string): string {
   const [y, m, d] = dateKey.split('-').map(Number) as [number, number, number];
   // Anchor at noon UTC to avoid TZ flipping the date.
@@ -41,6 +53,17 @@ function formatDayHeading(dateKey: string, timezone: string): string {
   return new Intl.DateTimeFormat('en-GB', {
     timeZone: timezone,
     weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+  }).format(anchor);
+}
+
+/** Short date label without weekday, e.g. "31 Aug" — used for "until …" suffixes. */
+function formatShortDate(dateKey: string, timezone: string): string {
+  const [y, m, d] = dateKey.split('-').map(Number) as [number, number, number];
+  const anchor = new Date(Date.UTC(y, m - 1, d, 12));
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone: timezone,
     day: 'numeric',
     month: 'short',
   }).format(anchor);
@@ -68,7 +91,7 @@ function formatTimeRange(ev: DigestEvent, timezone: string): string {
 }
 
 export function formatDigest(events: DigestEvent[], opts: FormatOptions): string {
-  const { timezone, title = 'WeekWire digest' } = opts;
+  const { timezone, title = 'WeekWire digest', now = new Date(), lookaheadDays = 14 } = opts;
 
   const header = `*${escapeMdV2(title)}*`;
 
@@ -76,15 +99,35 @@ export function formatDigest(events: DigestEvent[], opts: FormatOptions): string
     return `${header}\n\n${escapeMdV2('No events in the lookahead window. Enjoy the quiet.')}`;
   }
 
-  // Group by local date.
+  const windowStartKey = localDateKey(now.toISOString(), timezone);
+  const windowEndKey = addDaysToKey(windowStartKey, lookaheadDays);
+
+  // Group by local date. Multi-day events (spanning events, e.g. subscribed
+  // webcal calendars) get a single entry — placed on today if already in
+  // progress, otherwise on their start day — annotated with an end date
+  // instead of being repeated on every day they overlap.
   const groups = new Map<string, DigestEvent[]>();
+  const untilLabel = new Map<DigestEvent, string>();
   for (const ev of events) {
-    const key = ev.allDay
+    const startKey = ev.allDay
       ? ev.start.slice(0, 10) // all-day events already have date-only start
       : localDateKey(ev.start, timezone);
-    const arr = groups.get(key) ?? [];
+    // All-day end dates are exclusive per RFC5545 (day after the last day).
+    const endKey = ev.allDay
+      ? addDaysToKey(ev.end.slice(0, 10), -1)
+      : localDateKey(ev.end, timezone);
+
+    const placementKey = startKey > windowStartKey ? startKey : windowStartKey;
+    if (placementKey > windowEndKey) continue; // fully outside the window
+
+    if (endKey > startKey) {
+      const clippedEndKey = endKey < windowEndKey ? endKey : windowEndKey;
+      untilLabel.set(ev, formatShortDate(clippedEndKey, timezone));
+    }
+
+    const arr = groups.get(placementKey) ?? [];
     arr.push(ev);
-    groups.set(key, arr);
+    groups.set(placementKey, arr);
   }
 
   const sortedKeys = [...groups.keys()].sort();
@@ -95,7 +138,8 @@ export function formatDigest(events: DigestEvent[], opts: FormatOptions): string
       const time = escapeMdV2(formatTimeRange(ev, timezone));
       const titleEsc = escapeMdV2(ev.title || '(untitled)');
       const loc = ev.location ? ` · ${escapeMdV2(ev.location)}` : '';
-      return `• \`${time}\` ${titleEsc}${loc}`;
+      const until = untilLabel.has(ev) ? ` ${escapeMdV2(`(until ${untilLabel.get(ev)})`)}` : '';
+      return `• \`${time}\` ${titleEsc}${loc}${until}`;
     });
     return `*${escapeMdV2(formatDayHeading(key, timezone))}*\n${lines.join('\n')}`;
   });

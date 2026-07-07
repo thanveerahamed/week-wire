@@ -61,10 +61,13 @@ export async function POST(): Promise<Response> {
     lookaheadDays: prefs.lookaheadDays,
     timezone: prefs.timezone,
   });
-  const dateLabel = formatDigestDateLabel(new Date(), prefs.timezone);
+  const now = new Date();
+  const dateLabel = formatDigestDateLabel(now, prefs.timezone);
   const markdown = formatDigest(events, {
     timezone: prefs.timezone,
     title: `WeekWire preview – ${dateLabel}`,
+    now,
+    lookaheadDays: prefs.lookaheadDays,
   });
 
   const results = await Promise.all([

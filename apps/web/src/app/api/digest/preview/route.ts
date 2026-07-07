@@ -17,7 +17,10 @@ export async function GET(): Promise<Response> {
     lookaheadDays: prefs.lookaheadDays,
     timezone: prefs.timezone,
   });
-  const markdown = formatDigest(events, { timezone: prefs.timezone });
+  const markdown = formatDigest(events, {
+    timezone: prefs.timezone,
+    lookaheadDays: prefs.lookaheadDays,
+  });
 
   return NextResponse.json({
     markdown,
