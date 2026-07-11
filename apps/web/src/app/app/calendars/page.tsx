@@ -31,6 +31,7 @@ export default async function CalendarsPage({ searchParams }: PageProps) {
   const calendarsByAccount = await Promise.all(
     accounts.map(async (a) => ({
       accountEmail: a.accountEmail,
+      needsReauth: a.needsReauth,
       calendars: (await listSubCalendars(session.uid, a.accountEmail)).map<CalendarRow>((c) => ({
         calendarId: c.calendarId,
         summary: c.summary,
@@ -78,6 +79,7 @@ export default async function CalendarsPage({ searchParams }: PageProps) {
               key={a.accountEmail}
               accountEmail={a.accountEmail}
               calendars={a.calendars}
+              needsReauth={a.needsReauth}
             />
           ))}
         </div>

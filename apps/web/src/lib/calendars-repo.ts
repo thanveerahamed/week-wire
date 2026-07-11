@@ -29,6 +29,18 @@ function calendarsCol(uid: string, accountEmail: string) {
   return accountsCol(uid).doc(accountEmail).collection('calendars');
 }
 
+/**
+ * True only for genuine refresh-token invalidation (revoked/expired
+ * consent), as opposed to transient network or Google API errors. Only
+ * these should force the user through the OAuth flow again — anything else
+ * is safe to retry on the next scheduled run without disturbing the account.
+ */
+function isInvalidGrantError(err: unknown): boolean {
+  const e = err as { message?: string; response?: { data?: { error?: string } } } | undefined;
+  if (e?.response?.data?.error === 'invalid_grant') return true;
+  return typeof e?.message === 'string' && e.message.includes('invalid_grant');
+}
+
 export async function upsertCalendarAccount(
   uid: string,
   args: { accountEmail: string; refreshToken: string; scopes: string[] },
@@ -164,6 +176,10 @@ export async function resyncCalendarAccount(
     client.setCredentials({ refresh_token: refreshToken });
     await client.getAccessToken();
   } catch (err) {
+    if (!isInvalidGrantError(err)) {
+      console.warn('resync: transient token refresh failure for', accountEmail, err);
+      return { ok: false, error: 'sync_failed' };
+    }
     console.warn('resync: refresh token invalid for', accountEmail, err);
     await ref.set({ needsReauth: true, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
     return { ok: false, error: 'needs_reauth' };

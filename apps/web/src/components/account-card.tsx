@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { Star, Trash2, RefreshCw } from 'lucide-react';
+import { Star, Trash2, RefreshCw, AlertTriangle } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 
@@ -17,9 +17,10 @@ export interface CalendarRow {
 interface Props {
   accountEmail: string;
   calendars: CalendarRow[];
+  needsReauth?: boolean;
 }
 
-export function AccountCard({ accountEmail, calendars }: Props) {
+export function AccountCard({ accountEmail, calendars, needsReauth = false }: Props) {
   const router = useRouter();
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [removing, startRemoving] = useTransition();
@@ -71,6 +72,15 @@ export function AccountCard({ accountEmail, calendars }: Props) {
     });
   }
 
+  function reconnect() {
+    // Re-runs the OAuth flow for this exact account. Since the account is
+    // keyed by email, granting consent again just refreshes the stored
+    // token in place — no need to remove and re-add the calendar.
+    const origin = encodeURIComponent(window.location.origin);
+    const email = encodeURIComponent(accountEmail);
+    window.location.href = `/api/google/oauth/start?origin=${origin}&email=${email}`;
+  }
+
   return (
     <motion.div
       layout
@@ -93,10 +103,12 @@ export function AccountCard({ accountEmail, calendars }: Props) {
           ) : null}
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={resync} disabled={resyncing}>
-            <RefreshCw className={`size-4 ${resyncing ? 'animate-spin' : ''}`} aria-hidden />
-            {resyncing ? 'Syncing…' : 'Resync'}
-          </Button>
+          {!needsReauth ? (
+            <Button variant="ghost" size="sm" onClick={resync} disabled={resyncing}>
+              <RefreshCw className={`size-4 ${resyncing ? 'animate-spin' : ''}`} aria-hidden />
+              {resyncing ? 'Syncing…' : 'Resync'}
+            </Button>
+          ) : null}
           <Button
             variant={confirming ? 'destructive' : 'ghost'}
             size="sm"
@@ -108,6 +120,24 @@ export function AccountCard({ accountEmail, calendars }: Props) {
           </Button>
         </div>
       </div>
+
+      {needsReauth ? (
+        <div className="border-[var(--color-destructive)]/30 bg-[var(--color-destructive)]/10 flex items-center justify-between gap-3 border-b px-4 py-3">
+          <div className="flex items-start gap-2">
+            <AlertTriangle
+              className="mt-0.5 size-4 shrink-0 text-[var(--color-destructive)]"
+              aria-hidden
+            />
+            <p className="text-xs">
+              Google needs you to reconnect this account. Your calendars and settings are kept — no
+              need to remove and re-add.
+            </p>
+          </div>
+          <Button variant="default" size="sm" onClick={reconnect} className="shrink-0">
+            Reconnect
+          </Button>
+        </div>
+      ) : null}
 
       <ul className="divide-y">
         {calendars.length === 0 ? (

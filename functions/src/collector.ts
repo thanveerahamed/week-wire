@@ -8,6 +8,18 @@ import {
 import { db } from './firebase';
 import { env } from './env';
 
+/**
+ * True only for genuine refresh-token invalidation (revoked/expired
+ * consent), as opposed to transient network or Google API errors. Only
+ * these should force the user to reconnect — anything else is safe to
+ * retry on the next scheduled run without flagging the account.
+ */
+function isInvalidGrantError(err: unknown): boolean {
+  const e = err as { message?: string; response?: { data?: { error?: string } } } | undefined;
+  if (e?.response?.data?.error === 'invalid_grant') return true;
+  return typeof e?.message === 'string' && e.message.includes('invalid_grant');
+}
+
 function oauthClient() {
   const e = env();
   return new google.auth.OAuth2(
@@ -95,7 +107,15 @@ export async function collectUpcomingEvents(args: {
       client = oauthClient();
       client.setCredentials({ refresh_token: refreshToken });
       await client.getAccessToken();
+      // Refresh succeeded — clear any stale flag from a prior transient failure.
+      if (acc.data().needsReauth === true) {
+        await acc.ref.set({ needsReauth: false }, { merge: true });
+      }
     } catch (err) {
+      if (!isInvalidGrantError(err)) {
+        console.warn(`[${uid}] transient refresh failure for ${accountEmail}`, err);
+        continue;
+      }
       console.warn(`[${uid}] refresh failed for ${accountEmail}`, err);
       await acc.ref.set({ needsReauth: true }, { merge: true });
       continue;
