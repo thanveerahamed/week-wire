@@ -43,9 +43,9 @@ describe('formatDigest', () => {
       },
     ];
     const out = formatDigest(events, { timezone: TZ, now: new Date('2026-06-03T00:00:00.000Z') });
-    // Both day headings (Wed 3 Jun & Thu 4 Jun) should appear.
-    expect(out).toMatch(/Wed.*3 Jun/);
-    expect(out).toMatch(/Thu.*4 Jun/);
+    // Today (3 Jun) and Tomorrow (4 Jun) should be labeled as such, with dates.
+    expect(out).toMatch(/Today, 3 Jun/);
+    expect(out).toMatch(/Tomorrow, 4 Jun/);
     expect(out).toContain('Morning standup');
     expect(out).toContain('Late meeting');
     expect(out).toContain('Room 1');

@@ -66,7 +66,11 @@ function addDaysToKey(key: string, days: number): string {
   return shifted.toISOString().slice(0, 10);
 }
 
-function formatDayHeading(dateKey: string, timezone: string): string {
+function formatDayHeading(dateKey: string, timezone: string, todayKey?: string): string {
+  if (todayKey) {
+    if (dateKey === todayKey) return `Today, ${formatShortDate(dateKey, timezone)}`;
+    if (dateKey === addDaysToKey(todayKey, 1)) return `Tomorrow, ${formatShortDate(dateKey, timezone)}`;
+  }
   const [y, m, d] = dateKey.split('-').map(Number) as [number, number, number];
   const anchor = new Date(Date.UTC(y, m - 1, d, 12));
   return new Intl.DateTimeFormat('en-GB', {
@@ -157,7 +161,7 @@ export function formatDigest(
       const until = untilLabel.has(ev) ? ` ${escapeMdV2(`(until ${untilLabel.get(ev)})`)}` : '';
       return `• \`${time}\` ${titleEsc}${loc}${until}`;
     });
-    return `*${escapeMdV2(formatDayHeading(key, timezone))}*\n${lines.join('\n')}`;
+    return `*${escapeMdV2(formatDayHeading(key, timezone, windowStartKey))}*\n${lines.join('\n')}`;
   });
   return `${header}\n\n${sections.join('\n\n')}`;
 }
