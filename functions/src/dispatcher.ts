@@ -52,6 +52,13 @@ export const dispatchDigests = onSchedule(
     region: 'europe-west1',
     timeoutSeconds: 300,
     memory: '256MiB',
+    // Retry on failures (e.g. cold-start 5xx when no instance is warm yet)
+    // instead of silently skipping the run.
+    retryCount: 3,
+    minBackoffSeconds: 30,
+    maxBackoffSeconds: 120,
+    maxDoublings: 2,
+    maxRetrySeconds: 300,
   },
   async (event) => {
     const now = event.scheduleTime ? new Date(event.scheduleTime) : new Date();
